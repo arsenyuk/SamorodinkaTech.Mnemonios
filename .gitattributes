@@ -1,0 +1,90 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# C# sources
+*.cs text diff=csharp
+*.csx text diff=csharp
+
+# .NET projects
+*.csproj text
+*.props text
+*.targets text
+*.sln text eol=crlf
+
+# Config files
+*.json text
+*.xml text
+*.yaml text
+*.yml text
+*.config text
+
+# Documentation
+*.md text diff=markdown
+*.txt text
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Windows scripts
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Docker
+Dockerfile text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+
+# Archives
+*.zip binary
+*.gz binary
+*.tar binary
+
+# PDFs
+*.pdf binary
+
+# Office documents
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.pptx binary
+
+# Fonts
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# Compiled files
+*.dll binary
+*.exe binary
+*.pdb binary
+
+# Packages
+*.nupkg binary
+*.snupkg binary
+
+# Minified files
+*.min.js binary
+*.min.css binary
+
+# Logs
+*.log text
+
+# Environment files
+.env text
+.env.* text
+
+# Lock files
+packages.lock.json text
+
+# Database migrations
+*.sql text

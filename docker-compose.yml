@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    container_name: mnemonios-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mnemonios}
+      POSTGRES_USER: ${POSTGRES_USER:-mnemonios}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mnemonios_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mnemonios}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mnemonios
+
+  api:
+    build: .
+    container_name: mnemonios-api
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mnemonios};Username=${POSTGRES_USER:-mnemonios};Password=${POSTGRES_PASSWORD:-mnemonios_dev}
+      - HmacSettings__Key=${HMAC_KEY:-default_dev_key_replace_in_production_32ch}
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+    ports:
+      - "${API_PORT:-5000}:5080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mnemonios
+
+volumes:
+  pgdata:
+
+networks:
+  mnemonios:
+    driver: bridge
