@@ -279,6 +279,68 @@ public class PersonCessationService : IPersonCessationService
     }
 
     /// <inheritdoc/>
+    public async Task<int> ProcessDeferredCessationsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var dueDeferred = await _context.PersonDeferredCessations
+            .Where(d => d.Status == "pending" && d.ScheduledDeletionDate <= now)
+            .ToListAsync(cancellationToken);
+
+        if (dueDeferred.Count == 0)
+            return 0;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var processedCount = 0;
+
+            foreach (var deferred in dueDeferred)
+            {
+                // Найти ext_person по source_system_id + external_person_id
+                var extPerson = await _context.ExtPersons
+                    .FirstOrDefaultAsync(e =>
+                        e.SourceSystemId == deferred.SourceSystemId &&
+                        e.ExternalPersonId == deferred.ExternalPersonId, cancellationToken);
+
+                if (extPerson is not null)
+                {
+                    // Создать пометку прекращения обработки
+                    var extCessation = new ExtPersonCessation
+                    {
+                        Id = Guid.NewGuid(),
+                        PersonId = extPerson.Id,
+                        SourceSystemId = deferred.SourceSystemId,
+                        ExternalPersonId = deferred.ExternalPersonId,
+                        OrganizationUnitKey = deferred.OrganizationUnitKey,
+                        ProcessingStatus = "cessation",
+                        CreatedAt = now
+                    };
+                    await _repository.CreateExtCessationAsync(extCessation, cancellationToken);
+                }
+
+                // Пометить отложенный отзыв как выполненный
+                deferred.Status = "completed";
+                processedCount++;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "[DeferredCessation] Обработано {Count} отложенных отзывов с наступившей датой",
+                processedCount);
+
+            return processedCount;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<int> ReconcileAsync(CancellationToken cancellationToken = default)
     {
         // Найти все ext_person_cessations с processing_status = 'cessation'

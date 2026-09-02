@@ -20,7 +20,105 @@
 
 ---
 
-## Эндпоинт
+## Способы вызова
+
+Реконсилизация доступна двумя способами:
+
+| Способ | Описание | Использование |
+|--------|----------|---------------|
+| HTTP API | `POST /persons/cessation/reconcile` | Ручной вызов или внешний планировщик |
+| Worker | Периодическая фоновая задача | Автоматическое выполнение по cron |
+
+---
+
+## Автоматическая реконсилизация (Worker)
+
+### Архитектура
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│   Api (ASP.NET)     │     │   Worker (Console)  │
+│                     │     │                     │
+│  POST /cessation    │     │  TaskScheduler      │
+│  POST /deferred     │     │    ↓                │
+│                     │     │  ReconcileCessations│
+└─────────┬───────────┘     │    ↓                │
+          │                 │  ProcessDeferred    │
+          │                 │    ↓                │
+          │                 │  ReconcileAsync     │
+          └────────────────►│                     │
+                PostgreSQL  └─────────────────────┘
+```
+
+Worker — отдельный консольный процесс (side-car), запускаемый рядом с Api. Оба процесса подключаются к одной PostgreSQL.
+
+### Расписание
+
+По умолчанию — каждый час (`0 * * * *`). Настраивается в `appsettings.json`:
+
+```json
+{
+  "Worker": {
+    "Tasks": [
+      {
+        "Id": "reconcile-cessations",
+        "CronExpression": "0 * * * *",
+        "Enabled": true,
+        "TimeoutSeconds": 300,
+        "RetryIntervalMinutes": 5
+      }
+    ]
+  }
+}
+```
+
+### Цикл выполнения
+
+Каждый цикл планировщика выполняет два шага:
+
+#### Шаг 1: Обработка отложенных отзывов
+
+`ProcessDeferredCessationsAsync()` — преобразует отложенные отзывы в немедленные:
+
+```sql
+-- Найти отложенные отзывы с наступившей датой
+SELECT * FROM person_deferred_cessations
+WHERE status = 'pending' AND scheduled_deletion_date <= NOW()
+```
+
+Для каждой записи:
+1. Найти `ext_persons` по `source_system_id` + `external_person_id`
+2. Создать `ext_person_cessations` с `processing_status = 'cessation'`
+3. Пометить `person_deferred_cessations.status = 'completed'`
+
+#### Шаг 2: Реконсилизация
+
+`ReconcileAsync()` — удаляет помеченные записи (подробнее: [Алгоритм ReconcileAsync](#алгоритм-reconcileasync)).
+
+### Время задержки
+
+После наступления `scheduled_deletion_date` данные удаляются в течение **одного цикла планировщика** (до часа по умолчанию). Для уменьшения задержки — уменьшить интервал cron:
+
+```
+"*/5 * * * *"  — каждые 5 минут
+"*/15 * * * *" — каждые 15 минут
+```
+
+### Запуск
+
+```bash
+# Локально
+dotnet run --project src/Worker
+
+# Docker Compose
+docker compose up worker
+```
+
+---
+
+## Ручная реконсилизация (HTTP API)
+
+### Эндпоинт
 
 ```
 POST /persons/cessation/reconcile
@@ -203,6 +301,10 @@ SELECT COUNT(*) FROM person_external_ids WHERE person_id = :masterId
 | Файл | Метод |
 |------|-------|
 | `src/Infrastructure/Services/PersonCessationService.cs` | `ReconcileAsync()` |
+| `src/Infrastructure/Services/PersonCessationService.cs` | `ProcessDeferredCessationsAsync()` |
 | `src/Infrastructure/Services/PersonCessationService.cs` | `DeleteGoldenRecordsAsync()` |
 | `src/Api/Endpoints/PersonEndpoints.cs` | `HandleReconcileAsync()` |
 | `src/Domain/Interfaces/IPersonCessationService.cs` | `ReconcileAsync()` (интерфейс) |
+| `src/Domain/Interfaces/IPersonCessationService.cs` | `ProcessDeferredCessationsAsync()` (интерфейс) |
+| `src/Worker/Tasks/ReconcileCessationsTask.cs` | Фоновая задача |
+| `src/Worker/Scheduling/WorkerTaskScheduler.cs` | Планировщик |

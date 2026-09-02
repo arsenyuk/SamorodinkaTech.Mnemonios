@@ -33,6 +33,21 @@ services:
     networks:
       - mnemonios
 
+  worker:
+    build:
+      context: .
+      dockerfile: src/Worker/Dockerfile
+    container_name: mnemonios-worker
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mnemonios};Username=${POSTGRES_USER:-mnemonios};Password=${POSTGRES_PASSWORD:-mnemonios_dev}
+      - HmacSettings__Key=${HMAC_KEY:-default_dev_key_replace_in_production_32ch}
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mnemonios
+
 volumes:
   pgdata:
 

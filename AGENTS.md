@@ -119,7 +119,8 @@ SamorodinkaTech.Mnemonios/
 ├── src/
 │   ├── Domain/                 # Core domain (Entities, Enums, Interfaces)
 │   ├── Infrastructure/         # Data access, external services
-│   └── Common/                 # Shared utilities
+│   ├── Common/                 # Shared utilities
+│   └── Worker/                 # Side-car: периодические задачи (planner + tasks)
 ├── tests/
 │   ├── Unit/                   # Unit tests (xUnit + Moq)
 │   ├── Integration/            # Integration tests

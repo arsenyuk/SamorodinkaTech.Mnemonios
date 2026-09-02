@@ -12,6 +12,9 @@
   <Folder Name="/src/Infrastructure/">
     <Project Path="src/Infrastructure/SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Worker/">
+    <Project Path="src/Worker/SamorodinkaTech.Mnemonios.Worker.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Integration/">
     <Project Path="tests/Integration/SamorodinkaTech.Mnemonios.IntegrationTests.csproj" />

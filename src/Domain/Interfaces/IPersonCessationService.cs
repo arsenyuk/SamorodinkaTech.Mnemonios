@@ -41,4 +41,12 @@ public interface IPersonCessationService
     /// Возвращает количество обработанных записей.
     /// </summary>
     Task<int> ReconcileAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Обработка отложенных отзывов, дата которых наступила.
+    /// Преобразует person_deferred_cessations (status='pending', date &lt;= NOW())
+    /// в ext_person_cessations (processing_status='cessation') для удаления через ReconcileAsync.
+    /// Возвращает количество обработанных записей.
+    /// </summary>
+    Task<int> ProcessDeferredCessationsAsync(CancellationToken cancellationToken = default);
 }
