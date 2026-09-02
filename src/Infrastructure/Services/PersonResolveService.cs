@@ -115,6 +115,8 @@ public class PersonResolveService : IPersonResolveService
 
             await LinkExternalIdAsync(masterId, request, extPerson.Id, cancellationToken);
 
+            await SaveDocumentAsync(masterId, request, computedKeys, cancellationToken);
+
             if (defects.Count > 0)
             {
                 await SaveDefectsAsync(masterId, defects, request, cancellationToken);
@@ -142,6 +144,8 @@ public class PersonResolveService : IPersonResolveService
         var externalId = CreateExternalIdEntity(person.MasterId, request, extPerson.Id);
 
         var created = await _repository.CreateAsync(person, identificationKeys, externalId, cancellationToken);
+
+        await SaveDocumentAsync(created.MasterId, request, computedKeys, cancellationToken);
 
         if (defects.Count > 0)
         {
@@ -303,6 +307,42 @@ public class PersonResolveService : IPersonResolveService
         person.UpdatedAt = now;
         await _repository.GetByIdAsync(masterId, cancellationToken);
         _context.Persons.Update(person);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SaveDocumentAsync(
+        Guid masterId,
+        ResolveRequest request,
+        IReadOnlyList<IdentificationKey> computedKeys,
+        CancellationToken cancellationToken)
+    {
+        var evidence = request.Evidence;
+        if (string.IsNullOrWhiteSpace(evidence?.DulSeries) ||
+            string.IsNullOrWhiteSpace(evidence?.DulNumber))
+            return;
+
+        // Использовать HMAC-хеш ДУЛ из вычисленных ключей
+        var dulKey = computedKeys.FirstOrDefault(k => k.KeyType == "dul");
+        if (dulKey is null)
+            return;
+
+        var documentHash = dulKey.KeyValue;
+
+        // Проверить дубликат (уникальный индекс person_id + document_hash)
+        var exists = await _context.PersonDocuments
+            .AnyAsync(d => d.MasterId == masterId && d.DocumentHash == documentHash, cancellationToken);
+        if (exists)
+            return;
+
+        var doc = new PersonDocument
+        {
+            Id = Guid.NewGuid(),
+            MasterId = masterId,
+            DocumentType = evidence.DulType ?? string.Empty,
+            DocumentHash = documentHash,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PersonDocuments.Add(doc);
         await _context.SaveChangesAsync(cancellationToken);
     }
 }

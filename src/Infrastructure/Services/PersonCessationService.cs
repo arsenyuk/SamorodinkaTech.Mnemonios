@@ -430,6 +430,11 @@ public class PersonCessationService : IPersonCessationService
             .ToListAsync(cancellationToken);
         _context.PersonDeferredCessations.RemoveRange(deferred);
 
+        var documents = await _context.PersonDocuments
+            .Where(d => d.MasterId == masterId)
+            .ToListAsync(cancellationToken);
+        _context.PersonDocuments.RemoveRange(documents);
+
         var extPersons = await _context.ExtPersons
             .Where(e => e.MasterId == masterId)
             .ToListAsync(cancellationToken);

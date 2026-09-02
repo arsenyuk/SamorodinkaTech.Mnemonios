@@ -1,8 +1,10 @@
+using System.Data;
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Mnemonios.Domain.DTOs;
 using Mnemonios.Domain.Enums;
+using Npgsql;
 using Xunit;
 
 namespace Mnemonios.IntegrationTests;
@@ -427,6 +429,95 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
     }
 
     // =========================================================================
+    // 12. Cessation — два ДУЛ (паспорт РФ + паспорт иностранца), реконсилизация
+    // =========================================================================
+
+    [Fact]
+    public async Task Cessation_MultipleDulSystems_PreservesDocuments()
+    {
+        var uid = Guid.NewGuid().ToString("N")[..8];
+
+        // Система HR: паспорт иностранного гражданина (тип 10)
+        var hr = await PostResolve(new ResolveRequest
+        {
+            LastName = "Двуликов",
+            FirstName = "Антон",
+            MiddleName = "Сергеевич",
+            Evidence = new Evidence
+            {
+                DulType = "10",
+                DulSeries = $"AB{uid[..2]}",
+                DulNumber = $"{uid[..6]}"
+            },
+            SourceSystemId = "HR",
+            ExternalPersonId = $"ext-hr-{uid}"
+        });
+
+        hr.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var personId = hr.MasterId!.Value;
+
+        // Система CRM: паспорт гражданина РФ (тип 21), тот же ФИО
+        var crm = await PostResolve(new ResolveRequest
+        {
+            LastName = "Двуликов",
+            FirstName = "Антон",
+            MiddleName = "Сергеевич",
+            Evidence = new Evidence
+            {
+                DulType = "21",
+                DulSeries = $"{uid[..4]}",
+                DulNumber = $"{uid[..6]}"
+            },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-crm-{uid}"
+        });
+
+        crm.Status.Should().Be(PersonMatchStatus.Matched);
+        crm.MasterId.Should().Be(personId);
+
+        // Проверить: в person_documents 2 записи (тип 10 и тип 21)
+        var docsAfterResolve = await GetPersonDocuments(personId);
+        docsAfterResolve.Should().HaveCount(2);
+        docsAfterResolve.Should().Contain(d => d.DocumentType == "10");
+        docsAfterResolve.Should().Contain(d => d.DocumentType == "21");
+
+        // HR прекращает обработку
+        var ceaseHr = await _client.PostAsJsonAsync("/persons/cessation", new CessationRequest
+        {
+            Identifiers = [new CessationIdentifierDto { SourceSystemId = "HR", ExternalPersonId = $"ext-hr-{uid}" }]
+        });
+        ceaseHr.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Реконсилизация — ссылка HR удалена, но CRM остаётся
+        await Reconcile();
+
+        // Персона всё ещё существует
+        var getAfterHr = await _client.GetAsync($"/persons/{personId}");
+        getAfterHr.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Оба ДУЛ сохранены (ДУЛ — свойство золотой записи, не внешней ссылки)
+        var docsAfterHrCessation = await GetPersonDocuments(personId);
+        docsAfterHrCessation.Should().HaveCount(2);
+
+        // CRM прекращает обработку
+        var ceaseCrm = await _client.PostAsJsonAsync("/persons/cessation", new CessationRequest
+        {
+            Identifiers = [new CessationIdentifierDto { SourceSystemId = "CRM", ExternalPersonId = $"ext-crm-{uid}" }]
+        });
+        ceaseCrm.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Реконсилизация — ссылок нет → персона удалена
+        await Reconcile();
+
+        var getAfterAll = await _client.GetAsync($"/persons/{personId}");
+        getAfterAll.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Документы тоже удалены
+        var docsAfterFullDeletion = await CountPersonDocuments(personId);
+        docsAfterFullDeletion.Should().Be(0);
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 
@@ -441,5 +532,36 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
     {
         var response = await _client.PostAsJsonAsync("/persons/cessation/reconcile", new { });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    private async Task<int> CountPersonDocuments(Guid masterId)
+    {
+        await using var connection = new NpgsqlConnection("Host=localhost;Port=5432;Database=mnemonios;Username=mnemonios;Password=mnemonios_dev");
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM person_documents WHERE person_id = @pid";
+        cmd.Parameters.Add(new NpgsqlParameter("pid", masterId));
+
+        var result = await cmd.ExecuteScalarAsync();
+        return Convert.ToInt32(result);
+    }
+
+    private async Task<List<(string DocumentType, string DocumentHash)>> GetPersonDocuments(Guid masterId)
+    {
+        await using var connection = new NpgsqlConnection("Host=localhost;Port=5432;Database=mnemonios;Username=mnemonios;Password=mnemonios_dev");
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT document_type, document_hash FROM person_documents WHERE person_id = @pid ORDER BY document_type";
+        cmd.Parameters.Add(new NpgsqlParameter("pid", masterId));
+
+        var docs = new List<(string, string)>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            docs.Add((reader.GetString(0), reader.GetString(1)));
+        }
+        return docs;
     }
 }
