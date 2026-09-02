@@ -84,14 +84,9 @@ public class IdentificationKeyService : IIdentificationKeyService
         if (normalizedDul is not null)
             keys.Add(CreateKey("dul", normalizedDul));
 
+        // Standalone fio/fio_full НЕ создаются — ФИО не является сильным доказательством.
+        // ФИО используется только в составе составных ключей: inn_fio, snils_fio, dul_fio.
         var fio = $"{normalizedLastName}|{normalizedFirstName}";
-        keys.Add(CreateKey("fio", fio));
-
-        if (normalizedMiddleName is not null)
-        {
-            var fioFull = $"{normalizedLastName}|{normalizedFirstName}|{normalizedMiddleName}";
-            keys.Add(CreateKey("fio_full", fioFull));
-        }
 
         if (normalizedInn is not null)
         {

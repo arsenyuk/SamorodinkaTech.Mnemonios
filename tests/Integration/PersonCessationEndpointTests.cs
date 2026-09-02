@@ -224,6 +224,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Лебедев",
             FirstName = "Дмитрий",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = extId1
         });
@@ -232,6 +233,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Лебедев",
             FirstName = "Дмитрий",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = extId2
         });
@@ -280,6 +282,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Двухоргов",
             FirstName = "Андрей",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = extId1,
             OrganizationUnitKey = "Org-A"
@@ -293,6 +296,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Двухоргов",
             FirstName = "Андрей",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = extId2,
             OrganizationUnitKey = "Org-B"
@@ -336,6 +340,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "ДвухорговУдалённый",
             FirstName = "Борис",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = extId1,
             OrganizationUnitKey = "Org-A"
@@ -348,6 +353,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "ДвухорговУдалённый",
             FirstName = "Борис",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = extId2,
             OrganizationUnitKey = "Org-B"
@@ -436,6 +442,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
     public async Task Cessation_MultipleDulSystems_PreservesDocuments()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
 
         // Система HR: паспорт иностранного гражданина (тип 10)
         var hr = await PostResolve(new ResolveRequest
@@ -447,7 +454,8 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
             {
                 DulType = "10",
                 DulSeries = $"AB{uid[..2]}",
-                DulNumber = $"{uid[..6]}"
+                DulNumber = $"{uid[..6]}",
+                Snils = snils
             },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-hr-{uid}"
@@ -456,7 +464,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         hr.Status.Should().Be(PersonMatchStatus.Unmatched);
         var personId = hr.MasterId!.Value;
 
-        // Система CRM: паспорт гражданина РФ (тип 21), тот же ФИО
+        // Система CRM: паспорт гражданина РФ (тип 21), тот же ФИО + СНИЛС
         var crm = await PostResolve(new ResolveRequest
         {
             LastName = "Двуликов",
@@ -466,7 +474,8 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
             {
                 DulType = "21",
                 DulSeries = $"{uid[..4]}",
-                DulNumber = $"{uid[..6]}"
+                DulNumber = $"{uid[..6]}",
+                Snils = snils
             },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-crm-{uid}"
@@ -563,5 +572,29 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
             docs.Add((reader.GetString(0), reader.GetString(1)));
         }
         return docs;
+    }
+
+    /// <summary>
+    /// Генерирует валидный 11-значный СНИЛС на основе uid.
+    /// </summary>
+    private static string GenerateValidSnils(string uid)
+    {
+        var hash = uid.GetHashCode();
+        var absHash = Math.Abs(hash);
+        var nineDigits = absHash % 1_000_000_000;
+        var baseDigits = nineDigits.ToString("D9").Select(c => c - '0').ToArray();
+
+        int[] weights1 = [9, 8, 7, 6, 5, 4, 3, 2, 1];
+        int sum1 = 0;
+        for (int i = 0; i < 9; i++)
+            sum1 += baseDigits[i] * weights1[i];
+
+        int check1 = sum1 % 101;
+        if (check1 == 100) check1 = 0;
+
+        int digit10 = check1 / 10;
+        int digit11 = check1 % 10;
+
+        return string.Concat(baseDigits.Select(d => d.ToString())) + digit10 + digit11;
     }
 }

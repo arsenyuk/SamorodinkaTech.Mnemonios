@@ -20,6 +20,7 @@ public class PersonResolveService : IPersonResolveService
     private readonly INormalizationService _normalizationService;
     private readonly IIdentificationKeyService _keyService;
     private readonly IPersonCessationService _cessationService;
+    private readonly IPersonMergeService _mergeService;
     private readonly AppDbContext _context;
 
     /// <summary>
@@ -30,12 +31,14 @@ public class PersonResolveService : IPersonResolveService
         INormalizationService normalizationService,
         IIdentificationKeyService keyService,
         IPersonCessationService cessationService,
+        IPersonMergeService mergeService,
         AppDbContext context)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _normalizationService = normalizationService ?? throw new ArgumentNullException(nameof(normalizationService));
         _keyService = keyService ?? throw new ArgumentNullException(nameof(keyService));
         _cessationService = cessationService ?? throw new ArgumentNullException(nameof(cessationService));
+        _mergeService = mergeService ?? throw new ArgumentNullException(nameof(mergeService));
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
@@ -91,19 +94,63 @@ public class PersonResolveService : IPersonResolveService
         CancellationToken cancellationToken)
     {
         var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
-        var keyValues = computedKeys.Select(k => k.KeyValue);
 
-        var matchedPersonIds = await _repository.FindPersonIdsByKeysAsync(keyValues, cancellationToken);
+        // Только сильные идентификаторы для матчинга.
+        // Standalone fio/fio_full НЕ используются — ФИО не является сильным доказательством.
+        var matchingKeyValues = computedKeys
+            .Where(k => k.KeyType is "inn" or "snils" or "dul" or "inn_fio" or "snils_fio" or "dul_fio")
+            .Select(k => k.KeyValue);
+
+        var matchedPersonIds = await _repository.FindPersonIdsByKeysAsync(matchingKeyValues, cancellationToken);
 
         if (matchedPersonIds.Count > 1)
         {
-            return new ResolveResponse
+            // Попытка автоматического слияния: если ИНН из запроса совпадает
+            // только с одним из найденных лиц — это surviving, остальные merged.
+            var innKey = computedKeys.FirstOrDefault(k => k.KeyType == "inn");
+
+            if (innKey is not null)
             {
-                Status = PersonMatchStatus.Conflict,
-                MasterId = null,
-                HasDefects = defects.Count > 0,
-                Defects = defects
-            };
+                var innMatchedIds = await _repository.FindPersonIdsByKeysAsync(
+                    [innKey.KeyValue], cancellationToken);
+
+                if (innMatchedIds.Count == 1)
+                {
+                    var survivingId = innMatchedIds[0];
+                    var mergedIds = matchedPersonIds.Where(id => id != survivingId).ToList();
+
+                    foreach (var mergedId in mergedIds)
+                    {
+                        await _mergeService.MergePersonsAsync(
+                            survivingId, mergedId, "inn_match", cancellationToken);
+                    }
+
+                    // После слияния — обработать как Matched
+                    matchedPersonIds = [survivingId];
+                }
+                else
+                {
+                    // ИНН совпадает с несколькими лицами — настоящий конфликт
+                    return new ResolveResponse
+                    {
+                        Status = PersonMatchStatus.Conflict,
+                        MasterId = null,
+                        HasDefects = defects.Count > 0,
+                        Defects = defects
+                    };
+                }
+            }
+            else
+            {
+                // Нет ИНН в запросе — конфликт не разрешим автоматически
+                return new ResolveResponse
+                {
+                    Status = PersonMatchStatus.Conflict,
+                    MasterId = null,
+                    HasDefects = defects.Count > 0,
+                    Defects = defects
+                };
+            }
         }
 
         if (matchedPersonIds.Count == 1)
@@ -112,6 +159,9 @@ public class PersonResolveService : IPersonResolveService
 
             // Enrich golden record with new data
             await EnrichPersonAsync(masterId, request, cancellationToken);
+
+            // Добавить новые ключи идентификации (ИНН, СНИЛС, ДУЛ и составные)
+            await SaveNewKeysAsync(masterId, computedKeys, cancellationToken);
 
             await LinkExternalIdAsync(masterId, request, extPerson.Id, cancellationToken);
 
@@ -343,6 +393,38 @@ public class PersonResolveService : IPersonResolveService
             CreatedAt = DateTime.UtcNow
         };
         _context.PersonDocuments.Add(doc);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SaveNewKeysAsync(
+        Guid masterId,
+        IReadOnlyList<IdentificationKey> computedKeys,
+        CancellationToken cancellationToken)
+    {
+        // Получить существующие ключи лица
+        var existingKeyValues = await _context.PersonIdentificationKeys
+            .Where(k => k.MasterId == masterId)
+            .Select(k => k.KeyValue)
+            .ToListAsync(cancellationToken);
+
+        // Добавить только новые ключи (пропуск дубликатов)
+        var now = DateTime.UtcNow;
+        foreach (var key in computedKeys)
+        {
+            if (existingKeyValues.Contains(key.KeyValue))
+                continue;
+
+            _context.PersonIdentificationKeys.Add(new PersonIdentificationKey
+            {
+                Id = Guid.NewGuid(),
+                MasterId = masterId,
+                KeyType = key.KeyType,
+                KeyValue = key.KeyValue,
+                NormalizationVersion = DefaultNormalizationVersion,
+                CreatedAt = now
+            });
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
     }
 }

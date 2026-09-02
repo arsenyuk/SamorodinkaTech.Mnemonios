@@ -27,6 +27,7 @@ builder.Services.AddScoped<IIdentificationKeyService, IdentificationKeyService>(
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IPersonResolveService, PersonResolveService>();
 builder.Services.AddScoped<IPersonCessationService, PersonCessationService>();
+builder.Services.AddScoped<IPersonMergeService, PersonMergeService>();
 
 if (builder.Environment.IsDevelopment())
 {

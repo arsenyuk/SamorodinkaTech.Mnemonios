@@ -60,6 +60,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Шаляпин",
             FirstName = "Родион",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = extId
         };
@@ -84,6 +85,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             LastName = "Спартаков",
             FirstName = "Лев",
             MiddleName = "Маркович",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-spa-{uid}"
         });
@@ -93,6 +95,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             LastName = "Спартаков",
             FirstName = "Лев",
             MiddleName = "Маркович",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-spa-{uid}"
         });
@@ -206,6 +209,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "  Харитонов  ",
             FirstName = "Устин",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-khar-{uid}"
         });
@@ -214,6 +218,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ХАРИТОНОВ",
             FirstName = "устин",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-khar-{uid}"
         });
@@ -227,7 +232,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     // =========================================================================
 
     [Fact]
-    public async Task Resolve_ConflictingKeys_ReturnsConflict()
+    public async Task Resolve_ConflictingKeys_AutoMergesWhenInnResolves()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
 
@@ -244,15 +249,18 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Вешняков",
             FirstName = "Глеб",
+            Evidence = new Evidence { Snils = "12345678964" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-vesh2-{uid}"
         });
 
+        // Запрос с ИНН + СНИЛС → ИНН матчит person1, СНИЛС матчит person2
+        // Авто-merge: person2 → person1 (ИНН разрешает конфликт)
         var request = new ResolveRequest
         {
             LastName = "ВЕШНЯКОВ",
             FirstName = "ГЛЕБ",
-            Evidence = new Evidence { Inn = "7707083893" },
+            Evidence = new Evidence { Inn = "7707083893", Snils = "12345678964" },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-vesh3-{uid}"
         };
@@ -261,8 +269,9 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var result = await response.Content.ReadFromJsonAsync<ResolveResponse>();
 
-        result!.Status.Should().Be(PersonMatchStatus.Conflict);
-        result.MasterId.Should().BeNull();
+        // Авто-merge: ИНН разрешает конфликт → Matched, не Conflict
+        result!.Status.Should().Be(PersonMatchStatus.Matched);
+        result.MasterId.Should().Be(person1.MasterId);
     }
 
     // =========================================================================
@@ -287,6 +296,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Зубарев",
             FirstName = "Геннадий",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-zub2-{uid}"
         });
@@ -295,7 +305,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ЗУБАРЕВ",
             FirstName = "ГЕННАДИЙ",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = "12345678964", DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-zub3-{uid}"
         };
@@ -329,6 +339,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Салтыков",
             FirstName = "Демьян",
+            Evidence = new Evidence { Snils = "12345678964" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-salt2-{uid}"
         });
@@ -337,7 +348,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "САЛТЫКОВ",
             FirstName = "ДЕМЬЯН",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}", Snils = "12345678964" },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-salt3-{uid}"
         };
@@ -690,6 +701,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ухтомский",
             FirstName = "Борислав",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-ukh-{uid}"
         });
@@ -698,6 +710,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ухтомский",
             FirstName = "Борислав",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-ukh-{uid}"
         });
@@ -796,6 +809,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ятspbеков",
             FirstName = "Велимир",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-yat-{uid}"
         });
@@ -804,6 +818,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ЯТSPBЕКОВ",
             FirstName = "ВЕЛИМИР",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-yat-{uid}"
         });
@@ -812,6 +827,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ятspbеков",
             FirstName = "Велимир",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
             SourceSystemId = "HR",
             ExternalPersonId = $"hr-yat-{uid}"
         });
@@ -1145,8 +1161,118 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     }
 
     // =========================================================================
+    // 31. Conflict by INN — автоматическое слияние
+    // =========================================================================
+
+    [Fact]
+    public async Task Resolve_ConflictByInn_AutoMerges()
+    {
+        var uid = Guid.NewGuid().ToString("N")[..8];
+        var inn = GenerateValidInn(uid);
+
+        // Шаг 1: System A — сотрудник с паспортом иностранного гражданина (тип 10)
+        var step1 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Мержин",
+            FirstName = "Игорь",
+            Evidence = new Evidence { DulType = "10", DulSeries = $"AB{uid[..2]}", DulNumber = $"{uid[..6]}" },
+            SourceSystemId = "HR",
+            ExternalPersonId = $"ext-hr-{uid}"
+        });
+
+        step1.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var personA = step1.MasterId!.Value;
+
+        // Шаг 2: System B — тот же сотрудник с паспортом РФ (тип 21)
+        var step2 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Мержин",
+            FirstName = "Игорь",
+            Evidence = new Evidence { DulType = "21", DulSeries = $"{uid[..4]}", DulNumber = $"{uid[..6]}" },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-crm-{uid}"
+        });
+
+        step2.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var personB = step2.MasterId!.Value;
+        personB.Should().NotBe(personA, "разные ДУЛ → разные записи");
+
+        // Шаг 3: System A — сотрудник получает ИНН, повторный resolve
+        var step3 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Мержин",
+            FirstName = "Игорь",
+            Evidence = new Evidence
+            {
+                DulType = "10",
+                DulSeries = $"AB{uid[..2]}",
+                DulNumber = $"{uid[..6]}",
+                Inn = inn
+            },
+            SourceSystemId = "HR",
+            ExternalPersonId = $"ext-hr-{uid}"
+        });
+
+        step3.Status.Should().Be(PersonMatchStatus.Matched);
+        step3.MasterId.Should().Be(personA);
+
+        // Шаг 4: System B — сотрудник получает ИНН, повторный resolve
+        // ИНН → personA, ДУЛ тип 21 → personB → конфликт → авто-merge
+        var step4 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Мержин",
+            FirstName = "Игорь",
+            Evidence = new Evidence
+            {
+                DulType = "21",
+                DulSeries = $"{uid[..4]}",
+                DulNumber = $"{uid[..6]}",
+                Inn = inn
+            },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-crm-{uid}"
+        });
+
+        step4.Status.Should().Be(PersonMatchStatus.Matched, "авто-merge должен вернуть Matched");
+        step4.MasterId.Should().Be(personA, "должна остаться запись из System A");
+
+        // Шаг 5: GET /persons/{personA} — содержит обе внешние ссылки
+        var person = await GetPerson(personA);
+        person.Should().NotBeNull();
+        person!.Identifiers.Should().HaveCount(2);
+        person.Identifiers.Should().Contain(i => i.SourceSystemId == "HR");
+        person.Identifiers.Should().Contain(i => i.SourceSystemId == "CRM");
+
+        // Шаг 6: GET /persons/{personB} — удалена
+        var getDeleted = await _client.GetAsync($"/persons/{personB}");
+        getDeleted.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
+
+    /// <summary>
+    /// Генерирует валидный 10-значный ИНН юридического лица на основе uid.
+    /// </summary>
+    private static string GenerateValidInn(string uid)
+    {
+        // uid = 8 hex chars → 32 бита → достаточно для уникальности
+        var hash = uid.GetHashCode();
+        var absHash = Math.Abs(hash);
+
+        // Преобразуем в 9 цифр
+        var nineDigits = absHash % 1_000_000_000;
+        var digits = nineDigits.ToString("D9").Select(c => c - '0').ToArray();
+
+        int[] weights = [2, 4, 10, 3, 5, 9, 4, 6, 8];
+        int sum = 0;
+        for (int i = 0; i < 9; i++)
+            sum += digits[i] * weights[i];
+
+        int checkDigit = sum % 11 % 10;
+        return string.Concat(digits.Select(d => d.ToString())) + checkDigit;
+    }
 
     private async Task<ResolveResponse> PostResolve(ResolveRequest request)
     {
