@@ -13,12 +13,15 @@ persons (1) ──── (N) person_identification_keys
      │
      ├──────────── (N) person_defects
      │
+     ├──────────── (N) person_documents
+     │
      └──────────── (N) person_deferred_cessations
 ```
 
 - У одного лица может быть **любое количество** ключей идентификации
 - У одного лица может быть **любое количество** связей с внешними информационными системами
 - У одного лица может быть **любое количество** дефектов данных
+- У одного лица может быть **любое количество** документов (ДУЛ и др.)
 - У одного лица может быть **любое количество** записей отложенной прекращения обработки
 - Каждая связь уникальна по паре (source_system_id, external_person_id)
 
@@ -46,6 +49,7 @@ HMAC-ключи для детерминированного сопоставле
 | `person_id` | uuid | FK → persons(id) | Ссылка на лицо |
 | `key_type` | varchar(50) | NOT NULL | Тип ключа |
 | `key_value` | varchar(255) | NOT NULL | HMAC-SHA256 хеш (hex) |
+| `organization_unit_key` | varchar(100) | — | Ключ организационной единицы |
 | `normalization_version` | integer | NOT NULL, DEFAULT 1 | Версия алгоритма нормализации |
 | `created_at` | timestamp with time zone | NOT NULL | Дата создания |
 
@@ -107,6 +111,26 @@ HMAC-ключи для детерминированного сопоставле
 **Индексы:**
 - `ix_person_defects_person_id`
 - `ix_person_defects_defect_type`
+
+**Ограничения:** `ON DELETE RESTRICT`
+
+---
+
+## person_documents
+
+Документы физического лиц (ДУЛ и др.), создаваемые при наличии данных ДУЛ в запросе resolve.
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| `id` | uuid | PK | Уникальный идентификатор документа |
+| `person_id` | uuid | FK → persons(id) | Ссылка на лицо |
+| `document_type` | varchar(50) | NOT NULL | Тип документа (например, `dul`) |
+| `document_series` | varchar(50) | — | Серия документа |
+| `document_number` | varchar(50) | — | Номер документа |
+| `created_at` | timestamp with time zone | NOT NULL | Дата создания |
+
+**Индексы:**
+- `ix_person_documents_person_id`
 
 **Ограничения:** `ON DELETE RESTRICT`
 

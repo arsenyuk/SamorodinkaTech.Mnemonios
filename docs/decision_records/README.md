@@ -54,8 +54,8 @@
 ```
 
 Индекс существующих DR
-- [dr_architecture.md](dr_architecture.md) — ADR-001, ADR-002, ADR-005, ADR-009, ADR-022, ADR-023, ADR-030..034
-- [dr_database.md](dr_database.md) — BDR-013, BDR-014, BDR-015
+- [dr_architecture.md](dr_architecture.md) — ADR-001, ADR-002, ADR-005, ADR-009, ADR-022, ADR-023, ADR-030..036
+- [dr_database.md](dr_database.md) — BDR-013, BDR-014, BDR-015, BDR-016
 
 Примечания
 - Локальные настройки и параметры окружения не оформляются DR, если не меняют архитектурных инвариантов.

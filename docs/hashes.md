@@ -67,13 +67,11 @@ ResolveRequest → NormalizationService → IdentificationKeyService → HMAC-SH
 | `inn` | HMAC(normalized_inn) | ИНН: `"7707083893"` |
 | `snils` | HMAC(normalized_snils) | СНИЛС: `"12345678964"` |
 | `dul` | HMAC(type\|series\|number) | ДУЛ: тип `"21"`, серия `"4510"`, номер `"123456"` |
-| `fio` | HMAC(lastName\|firstName) | ФИО: `"ИВАНОВ"`, `"ИВАН"` |
-| `fio_full` | HMAC(lastName\|firstName\|middleName) | Полное ФИО (если есть отчество) |
 | `inn_fio` | HMAC(normalized_inn\|fio) | ИНН + ФИО |
 | `snils_fio` | HMAC(normalized_snils\|fio) | СНИЛС + ФИО |
 | `dul_fio` | HMAC(normalized_dul\|fio) | ДУЛ + ФИО |
 
-**Ключ `fio`** создаётся всегда. Остальные — только при наличии соответствующих данных.
+> **Примечание.** Стandalone-ключи `fio` и `fio_full` **не создаются** — ФИО не является сильным доказательством идентичности. ФИО используется **только** в составе комбинированных ключей (`inn_fio`, `snils_fio`, `dul_fio`).
 
 ---
 
@@ -122,7 +120,9 @@ private string ComputeHmacSha256(string value)
 
 1. Вычислить все доступные ключи из входного запроса
 2. Найти все `person_identification_keys`, где `key_value` совпадает с любым из вычисленных
-3. Если найдено > 1 уникального `person_id` → **Conflict**
+3. Если найдено > 1 уникального `person_id`:
+   - Если в запросе есть ИНН и он совпадает ровно с 1 лицом → **Auto-merge**: это лицо выживает, остальные сливаются через `PersonMergeService.MergePersonsAsync()`
+   - Иначе → **Conflict** (противоречивые данные)
 4. Если найдено ровно 1 `person_id` → **Matched**
 5. Если ничего не найдено → **Unmatched** (создать нового)
 

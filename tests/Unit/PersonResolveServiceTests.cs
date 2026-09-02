@@ -19,12 +19,14 @@ public class PersonResolveServiceTests
 
     private readonly Mock<IPersonRepository> _repositoryMock;
     private readonly Mock<IPersonCessationService> _cessationServiceMock;
+    private readonly Mock<IPersonMergeService> _mergeServiceMock;
     private readonly PersonResolveService _sut;
 
     public PersonResolveServiceTests()
     {
         _repositoryMock = new Mock<IPersonRepository>();
         _cessationServiceMock = new Mock<IPersonCessationService>();
+        _mergeServiceMock = new Mock<IPersonMergeService>();
         var normalizationService = new NormalizationService();
         var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
         var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
@@ -40,6 +42,7 @@ public class PersonResolveServiceTests
             normalizationService,
             keyService,
             _cessationServiceMock.Object,
+            _mergeServiceMock.Object,
             dbContext);
 
         SetupStagingMocks();

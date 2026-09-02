@@ -41,7 +41,7 @@ POST /persons/resolve
 **Состояние БД:**
 - `ext_persons`: 1 запись (`HR/ext-emp-001`, status=processed)
 - `persons`: 1 запись (ФИО + ДУЛ, без ИНН и СНИЛС)
-- `person_identification_keys`: ключи на основе ФИО + ДУЛ
+- `person_identification_keys`: ключи на основе ДУЛ (`dul`, `dul_fio`)
 
 ### Шаг 2: Сотрудник получает ИНН
 
@@ -77,7 +77,7 @@ POST /persons/resolve
 **Состояние БД:**
 - `ext_persons`: **2 записи** (новая `HR/ext-emp-001`, status=processed)
 - `persons`: **обогащена** — добавлен `inn`, обновлён `updated_at`
-- `person_identification_keys`: добавлены новые ключи на основе ИНН
+- `person_identification_keys`: добавлены новые ключи на основе ИНН (`inn`, `inn_fio`) через `SaveNewKeysAsync`
 
 ### Шаг 3: Бухгалтер оформляет СНИЛС
 
@@ -114,7 +114,7 @@ POST /persons/resolve
 **Состояние БД:**
 - `ext_persons`: **3 записи** (новая `HR/ext-emp-001`, status=processed)
 - `persons`: **обогащена** — добавлен `snils`, обновлён `updated_at`
-- `person_identification_keys`: добавлены новые ключи на основе СНИЛС
+- `person_identification_keys`: добавлены новые ключи на основе СНИЛС (`snils`, `snils_fio`) через `SaveNewKeysAsync`
 
 ### Результат
 
@@ -484,3 +484,107 @@ POST /persons/resolve
 - При наличии отложенного отзыва `scheduledDeletionDate` возвращается в ответе
 - При resolve от другой системы (которая не устанавливала отзыв) отзыв автоматически отменяется
 - `scheduledDeletionDate` исчезает из ответа
+
+---
+
+## Автоматическое слияние (auto-merge)
+
+Две записи одного лица были созданы разными системами. При resolve с ИНН, совпадающим ровно с одной из них, происходит автоматическое слияние — выживающее лицо получает все ключи, внешние ID и документы от сливаемого.
+
+### Шаг 1: Система A создаёт персону
+
+```json
+POST /persons/resolve
+{
+  "lastName": "Сидоров",
+  "firstName": "Алексей",
+  "evidence": {
+    "inn": "7707083893",
+    "dulType": "21",
+    "dulSeries": "4510",
+    "dulNumber": "111222"
+  },
+  "identifiers": [
+    {
+      "sourceSystemId": "HR",
+      "externalPersonId": "emp-200"
+    }
+  ]
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "Unmatched",
+  "personId": "a1111111-1111-1111-1111-111111111111"
+}
+```
+
+### Шаг 2: Система B создаёт того же персону (по ФИО + ДУЛ, без ИНН)
+
+```json
+POST /persons/resolve
+{
+  "lastName": "Сидоров",
+  "firstName": "Алексей",
+  "evidence": {
+    "dulType": "21",
+    "dulSeries": "4510",
+    "dulNumber": "111222"
+  },
+  "identifiers": [
+    {
+      "sourceSystemId": "CRM",
+      "externalPersonId": "cli-300"
+    }
+  ]
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "Unmatched",
+  "personId": "b2222222-2222-2222-2222-222222222222"
+}
+```
+
+Теперь в БД **два лица** для одного и того же человека.
+
+### Шаг 3: Resolve с ИНН → auto-merge
+
+```json
+POST /persons/resolve
+{
+  "lastName": "Сидоров",
+  "firstName": "Алексей",
+  "evidence": {
+    "inn": "7707083893"
+  },
+  "identifiers": [
+    {
+      "sourceSystemId": "ERP",
+      "externalPersonId": "emp-400"
+    }
+  ]
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "Matched",
+  "personId": "a1111111-1111-1111-1111-111111111111"
+}
+```
+
+### Результат
+
+- Ключи ИНН совпали ровно с 1 лицом (`a1111...`) → выживающее лицо
+- Лицо `b2222...` **слито** в `a1111...` через `PersonMergeService.MergePersonsAsync()`:
+  - Ключи идентификации перенесены
+  - Внешние ID (`CRM/cli-300`) перенесены
+  - Документы (ДУЛ) перенесены
+  - Лицо `b2222...` удалено
+- Внешняя связь `ERP/emp-400` привязана к выжившему лицу

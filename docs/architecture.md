@@ -51,9 +51,9 @@ SamorodinkaTech.Mnemonios/
 ├── src/
 │   ├── Api/                        # ASP.NET Core Minimal API (эンドпоинты, Program.cs)
 │   ├── Domain/                     # Доменный слой
-│   │   ├── Entities/               # Сущности (Person, PersonIdentificationKey, PersonExternalId, PersonDefect, PersonDeferredCessation)
+│   │   ├── Entities/               # Сущности (Person, PersonIdentificationKey, PersonExternalId, PersonDefect, PersonDocument, PersonDeferredCessation)
 │   │   ├── Enums/                  # Перечисления (PersonMatchStatus)
-│   │   ├── Interfaces/             # Абстракции (IPersonRepository, IPersonResolveService)
+│   │   ├── Interfaces/             # Абстракции (IPersonRepository, IPersonResolveService, IPersonMergeService)
 │   │   ├── Validation/             # Серверная валидация (PersonResolveValidator)
 │   │   └── DTOs/                   # Модели запросов/ответов
 │   ├── Infrastructure/             # Инфраструктурный слой
@@ -66,7 +66,6 @@ SamorodinkaTech.Mnemonios/
 │   └── Integration/                # Integration тесты (WebApplicationFactory)
 ├── docs/                           # Документация
 │   ├── architecture.md             # Этот файл
-│   ├── eedin/                      # Документация модуля ЕДИН
 │   └── decision_records/           # Architecture Decision Records
 ├── tools/
 │   └── db/                         # SQL-скрипты (01_schema.sql, 00_reset, 02_seed)
@@ -87,11 +86,10 @@ SamorodinkaTech.Mnemonios/
 |-----------|----------|
 | **NormalizationService** | Нормализация ФИО, ИНН, СНИЛС, ДУЛ (trim, collapse, NFC, uppercase) |
 | **IdentificationKeyService** | Вычисление HMAC-SHA256 ключей для детерминированного сопоставления |
-| **PersonResolveService** | Основной алгоритм идентификации (Matched/Unmatched/Conflict) |
+| **PersonResolveService** | Основной алгоритм идентификации (Matched/Unmatched/Conflict/Auto-merge) |
+| **PersonMergeService** | Слияние двух персон: перенос ключей, внешних ID, документов в выживающую запись |
 | **PersonRepository** | CRUD операции с транзакционной поддержкой (BDR-015) |
 | **PersonResolveValidator** | Серверная валидация (ИНН, СНИЛС, обязательные поля) |
-
-Подробнее: [docs/eedin.md](eedin.md)
 
 ---
 

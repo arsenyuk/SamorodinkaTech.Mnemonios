@@ -230,6 +230,9 @@ SELECT COUNT(*) FROM person_external_ids WHERE person_id = :masterId
   Сохранить    Удалить         │                │
   лицо        золотые          │                │
               записи           │                │
+              (keys, defects,  │                │
+               documents,     │                │
+               persons)       │                │
                                │                │
                     ┌──────────▼────────────────▼──┐
                     │ Коммит транзакции            │
@@ -279,10 +282,11 @@ SELECT COUNT(*) FROM person_external_ids WHERE person_id = :masterId
 |---|---------|-----|
 | 1 | `person_identification_keys` | → `persons(id)` RESTRICT |
 | 2 | `person_defects` | → `persons(id)` RESTRICT |
-| 3 | `person_deferred_cessations` | → `persons(id)` RESTRICT |
-| 4 | `ext_person_defects` | → `ext_persons(id)` RESTRICT |
-| 5 | `ext_persons` | → `persons(id)` SET NULL |
-| 6 | `persons` | (корневая таблица) |
+| 3 | `person_documents` | → `persons(id)` RESTRICT |
+| 4 | `person_deferred_cessations` | → `persons(id)` RESTRICT |
+| 5 | `ext_person_defects` | → `ext_persons(id)` RESTRICT |
+| 6 | `ext_persons` | → `persons(id)` SET NULL |
+| 7 | `persons` | (корневая таблица) |
 
 `ON DELETE CASCADE` запрещён. Все удаления выполняются приложением явно.
 

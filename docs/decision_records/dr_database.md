@@ -87,7 +87,7 @@
 2. **Фаза 2 (реконсилизация):** удалить помеченные staging-записи,
    затем проверить — если у лица нет оставшихся внешних ссылок →
    удалить золотые записи (keys, external_ids, defects,
-   deferred_cessations, persons).
+   documents, deferred_cessations, persons).
 
 Порядок удаления в фазе 2:
 1. `ext_person_defects` (через `ext_persons`)
@@ -98,6 +98,7 @@
 6. Если нет оставшихся `external_ids`:
    - `person_identification_keys`
    - `person_defects`
+   - `person_documents`
    - `person_deferred_cessations`
    - `persons`
 

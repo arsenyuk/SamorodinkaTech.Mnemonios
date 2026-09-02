@@ -29,24 +29,22 @@ public class IdentificationKeyServiceTests
         var keyTypes = keys.Select(k => k.KeyType).ToList();
         keyTypes.Should().Contain("inn");
         keyTypes.Should().Contain("snils");
-        keyTypes.Should().Contain("fio");
-        keyTypes.Should().Contain("fio_full");
         keyTypes.Should().Contain("inn_fio");
         keyTypes.Should().Contain("snils_fio");
+        // Standalone fio/fio_full не создаются — ФИО не является сильным доказательством
+        keyTypes.Should().NotContain("fio");
+        keyTypes.Should().NotContain("fio_full");
     }
 
     [Fact]
-    public void ComputeKeys_WithOnlyFio_ReturnsFioKeys()
+    public void ComputeKeys_WithOnlyFio_ReturnsNoKeys()
     {
+        // Без ДУЛ/ИНН/СНИЛС ключи не создаются — ФИО не является сильным доказательством
         var request = CreateRequest();
 
         var keys = _sut.ComputeKeys(request);
 
-        var keyTypes = keys.Select(k => k.KeyType).ToList();
-        keyTypes.Should().Contain("fio");
-        keyTypes.Should().Contain("fio_full");
-        keyTypes.Should().NotContain("inn");
-        keyTypes.Should().NotContain("snils");
+        keys.Should().BeEmpty();
     }
 
     [Fact]
@@ -66,18 +64,18 @@ public class IdentificationKeyServiceTests
     }
 
     [Fact]
-    public void ComputeKeys_DifferentNamesProducesDifferentKeys()
+    public void ComputeKeys_DifferentDulProducesDifferentKeys()
     {
-        var request1 = CreateRequest(firstName: "Иван");
-        var request2 = CreateRequest(firstName: "Петр");
+        var request1 = CreateRequest(evidence: new Evidence { DulType = "21", DulSeries = "4510", DulNumber = "123456" });
+        var request2 = CreateRequest(evidence: new Evidence { DulType = "10", DulSeries = "AB12", DulNumber = "654321" });
 
         var keys1 = _sut.ComputeKeys(request1);
         var keys2 = _sut.ComputeKeys(request2);
 
-        var fioKey1 = keys1.Single(k => k.KeyType == "fio").KeyValue;
-        var fioKey2 = keys2.Single(k => k.KeyType == "fio").KeyValue;
+        var dulKey1 = keys1.Single(k => k.KeyType == "dul").KeyValue;
+        var dulKey2 = keys2.Single(k => k.KeyType == "dul").KeyValue;
 
-        fioKey1.Should().NotBe(fioKey2);
+        dulKey1.Should().NotBe(dulKey2);
     }
 
     [Fact]

@@ -64,6 +64,7 @@ Master Person Index (MPI) — обеспечивает определение е
 │              Domain Layer                     │
 │  Entities: Person, PersonIdentificationKey,   │
 │            PersonExternalId, PersonDefect,    │
+│            PersonDocument,                   │
 │            PersonDeferredCessation            │
 │  Validation: PersonResolveValidator,          │
 │              InnValidator, SnilsValidator     │
@@ -78,6 +79,7 @@ Master Person Index (MPI) — обеспечивает определение е
 │  IdentificationKeyService — HMAC-SHA256 ключи │
 │  PersonRepository — EF Core CRUD              │
 │  PersonResolveService — алгоритм matching     │
+│  PersonMergeService — слияние персон          │
 │  PersonCessationService — отзыв данных        │
 └────────────────────┬──────────────────────────┘
                      │
@@ -85,6 +87,7 @@ Master Person Index (MPI) — обеспечивает определение е
 │            PostgreSQL 16                    │
 │  persons / person_identification_keys /     │
 │  person_external_ids / person_defects /     │
+│  person_documents /                        │
 │  person_deferred_cessations                 │
 └─────────────────────────────────────────────┘
 ```
@@ -172,8 +175,11 @@ Master Person Index (MPI) — обеспечивает определение е
 5. Решение:
    - 1 person_id → Matched (однозначное совпадение)
    - 0 person_id → Unmatched (создание нового лица)
-   - >1 person_id → Conflict (противоречивые данные)
-6. Привязка external_id к найденному/созданному лицу
+   - >1 person_id + ИНН совпадает ровно с 1 лицом → Auto-merge
+   - >1 person_id (без ИНН или ИНН совпадает с несколькими) → Conflict
+6. При auto-merge: слияние ключей, внешних ID и документов
+   в выживающее лицо через PersonMergeService
+7. Привязка external_id к найденному/созданному лицу
 ```
 
 Наличие неполных данных не препятствует сопоставлению — используются только доступные ключи.
@@ -370,7 +376,7 @@ Master Person Index (MPI) — обеспечивает определение е
   "identificationKeys": [
     {
       "id": "b1c2d3e4-f5a6-7890-abcd-ef1234567890",
-      "keyType": "fio",
+      "keyType": "inn",
       "normalizationVersion": 1,
       "createdAt": "2024-01-15T10:30:00Z"
     }
