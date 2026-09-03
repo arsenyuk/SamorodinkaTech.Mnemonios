@@ -58,6 +58,9 @@ public record ExternalIdInfo
 
     /// <summary>Типизированный классификатор (опционально).</summary>
     public string? ExternalPersonType { get; init; }
+
+    /// <summary>Ключ юридического лица (организационная единица).</summary>
+    public string? OrganizationUnitKey { get; init; }
 }
 
 /// <summary>
@@ -70,9 +73,6 @@ public record KeyInfo
 
     /// <summary>HMAC-SHA256 хеш (первые 16 символов для отображения).</summary>
     public string KeyValuePreview { get; init; } = string.Empty;
-
-    /// <summary>Ключ юридического лица (организационная единица).</summary>
-    public string? OrganizationUnitKey { get; init; }
 }
 
 /// <summary>

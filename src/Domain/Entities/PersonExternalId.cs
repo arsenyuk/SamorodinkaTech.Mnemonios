@@ -20,6 +20,9 @@ public class PersonExternalId
     /// <summary>Опциональный типизированный классификатор из внешней системы.</summary>
     public string? ExternalPersonType { get; set; }
 
+    /// <summary>Ключ юридического лица (организационная единица).</summary>
+    public string? OrganizationUnitKey { get; set; }
+
     /// <summary>Дата создания записи.</summary>
     public DateTime CreatedAt { get; set; }
 

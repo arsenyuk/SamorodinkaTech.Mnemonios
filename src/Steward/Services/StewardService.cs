@@ -129,13 +129,13 @@ public class StewardService : IStewardService
             {
                 SourceSystemId = e.SourceSystemId,
                 ExternalPersonId = e.ExternalPersonId,
-                ExternalPersonType = e.ExternalPersonType
+                ExternalPersonType = e.ExternalPersonType,
+                OrganizationUnitKey = e.OrganizationUnitKey
             }).ToList(),
             IdentificationKeys = keys.Select(k => new KeyInfo
             {
                 KeyType = k.KeyType,
-                KeyValuePreview = k.KeyValue.Length > 16 ? k.KeyValue[..16] : k.KeyValue,
-                OrganizationUnitKey = k.OrganizationUnitKey
+                KeyValuePreview = k.KeyValue.Length > 16 ? k.KeyValue[..16] : k.KeyValue
             }).ToList(),
             Defects = defects.Select(d => new DefectInfo
             {

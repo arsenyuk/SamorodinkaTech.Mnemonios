@@ -55,6 +55,7 @@ CREATE TABLE person_external_ids (
     source_system_id      varchar(100) NOT NULL,
     external_person_id    varchar(255) NOT NULL,
     external_person_type  varchar(255),
+    organization_unit_key varchar(100),
     created_at            timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at            timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );

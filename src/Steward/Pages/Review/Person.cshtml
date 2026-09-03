@@ -43,7 +43,7 @@
             <div class="table-responsive">
                 <table class="table table-sm mb-0">
                     <thead>
-                        <tr><th>Система</th><th>Внешний ID</th><th>Тип</th></tr>
+                        <tr><th>Система</th><th>Внешний ID</th><th>Тип</th><th>Юр. лицо</th></tr>
                     </thead>
                     <tbody>
                         @foreach (var e in p.ExternalIds)
@@ -52,6 +52,7 @@
                                 <td><span class="badge bg-primary">@e.SourceSystemId</span></td>
                                 <td><code>@e.ExternalPersonId</code></td>
                                 <td>@(e.ExternalPersonType ?? "—")</td>
+                                <td>@(e.OrganizationUnitKey ?? "—")</td>
                             </tr>
                         }
                     </tbody>
@@ -77,7 +78,7 @@
             <div class="table-responsive">
                 <table class="table table-sm mb-0">
                     <thead>
-                        <tr><th>Тип</th><th>Хеш (превью)</th><th>Юр. лицо</th></tr>
+                        <tr><th>Тип</th><th>Хеш (превью)</th></tr>
                     </thead>
                     <tbody>
                         @foreach (var k in p.IdentificationKeys)
@@ -85,7 +86,6 @@
                             <tr>
                                 <td><code>@k.KeyType</code></td>
                                 <td><code>@k.KeyValuePreview</code></td>
-                                <td>@(k.OrganizationUnitKey ?? "—")</td>
                             </tr>
                         }
                     </tbody>
