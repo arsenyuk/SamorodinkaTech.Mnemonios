@@ -59,6 +59,7 @@
                     "conflict" => ("row-conflict", "bi-x-circle-fill", "Конфликт", "status-conflict"),
                     "only_a" => ("row-partial", "bi-dash-circle", "Только A", "status-partial"),
                     "only_b" => ("row-partial", "bi-dash-circle", "Только B", "status-partial"),
+                    "none" => ("", "bi-dash-circle", "Нет ни у кого", "text-muted"),
                     _ => ("", "bi-question-circle", k.Status, "")
                 };
                 <tr class="@rowClass">
@@ -115,7 +116,7 @@
                     {
                         <table class="table table-sm mb-3" style="font-size:.85em">
                             <thead>
-                                <tr><th>Система</th><th>Внешний ID</th><th>Тип</th></tr>
+                                <tr><th>Система</th><th>Внешний ID</th><th>Тип</th><th>Юр. лицо</th></tr>
                             </thead>
                             <tbody>
                                 @foreach (var e in person.ExternalIds)
@@ -124,6 +125,7 @@
                                         <td><span class="badge bg-secondary">@e.SourceSystemId</span></td>
                                         <td><code>@e.ExternalPersonId</code></td>
                                         <td>@(e.ExternalPersonType ?? "—")</td>
+                                        <td>@(e.OrganizationUnitKey ?? "—")</td>
                                     </tr>
                                 }
                             </tbody>

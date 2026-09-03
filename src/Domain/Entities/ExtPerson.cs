@@ -20,6 +20,24 @@ public class ExtPerson
     /// <summary>Опциональный типизированный классификатор из системы-источника.</summary>
     public string? ExternalPersonType { get; set; }
 
+    /// <summary>HMAC-хеш ключа inn.</summary>
+    public string? KeyInn { get; set; }
+
+    /// <summary>HMAC-хеш ключа snils.</summary>
+    public string? KeySnils { get; set; }
+
+    /// <summary>HMAC-хеш ключа dul.</summary>
+    public string? KeyDul { get; set; }
+
+    /// <summary>HMAC-хеш ключа inn_fio.</summary>
+    public string? KeyInnFio { get; set; }
+
+    /// <summary>HMAC-хеш ключа snils_fio.</summary>
+    public string? KeySnilsFio { get; set; }
+
+    /// <summary>HMAC-хеш ключа dul_fio.</summary>
+    public string? KeyDulFio { get; set; }
+
     /// <summary>Дата создания записи.</summary>
     public DateTime CreatedAt { get; set; }
 

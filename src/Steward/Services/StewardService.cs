@@ -119,6 +119,18 @@ public class StewardService : IStewardService
         var documents = await _context.PersonDocuments
             .Where(d => d.MasterId == masterId)
             .ToListAsync(ct);
+        var extPersons = await _context.ExtPersons
+            .Where(ep => ep.MasterId == masterId)
+            .OrderByDescending(ep => ep.CreatedAt)
+            .ToListAsync(ct);
+
+        var extPersonIds = extPersons.Select(ep => ep.Id).ToList();
+        var extDefects = await _context.ExtPersonDefects
+            .Where(ed => extPersonIds.Contains(ed.ExtPersonId))
+            .ToListAsync(ct);
+        var defectsByExtPerson = extDefects
+            .GroupBy(ed => ed.ExtPersonId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         return new PersonData
         {
@@ -147,6 +159,25 @@ public class StewardService : IStewardService
             {
                 DocumentType = d.DocumentType,
                 DocumentHashPreview = d.DocumentHash.Length > 16 ? d.DocumentHash[..16] : d.DocumentHash
+            }).ToList(),
+            ExtPersons = extPersons.Select(ep =>
+            {
+                defectsByExtPerson.TryGetValue(ep.Id, out var epDefects);
+                return new ExtPersonInfo
+                {
+                    Id = ep.Id,
+                    SourceSystemId = ep.SourceSystemId,
+                    ExternalPersonId = ep.ExternalPersonId,
+                    ExternalPersonType = ep.ExternalPersonType,
+                    CreatedAt = ep.CreatedAt,
+                    ProcessedAt = ep.ProcessedAt,
+                    Defects = (epDefects ?? []).Select(d => new ExtPersonDefectInfo
+                    {
+                        DefectType = d.DefectType,
+                        DefectMessage = d.DefectMessage,
+                        FieldName = d.FieldName
+                    }).ToList()
+                };
             }).ToList()
         };
     }
@@ -164,7 +195,9 @@ public class StewardService : IStewardService
             keysB.TryGetValue(keyType, out var valueB);
 
             string status;
-            if (valueA is not null && valueB is not null)
+            if (valueA is null && valueB is null)
+                status = "none";
+            else if (valueA is not null && valueB is not null)
                 status = valueA == valueB ? "match" : "conflict";
             else if (valueA is not null)
                 status = "only_a";

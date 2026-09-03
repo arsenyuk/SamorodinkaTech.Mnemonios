@@ -18,6 +18,7 @@ public class PersonExternalIdConfiguration : IEntityTypeConfiguration<PersonExte
         builder.Property(e => e.Id).HasColumnName("id");
 
         builder.Property(e => e.MasterId).HasColumnName("person_id").IsRequired();
+        builder.Property(e => e.ExtPersonId).HasColumnName("ext_person_id");
         builder.Property(e => e.SourceSystemId).HasColumnName("source_system_id").HasMaxLength(100).IsRequired();
         builder.Property(e => e.ExternalPersonId).HasColumnName("external_person_id").HasMaxLength(255).IsRequired();
         builder.Property(e => e.ExternalPersonType).HasColumnName("external_person_type").HasMaxLength(255);

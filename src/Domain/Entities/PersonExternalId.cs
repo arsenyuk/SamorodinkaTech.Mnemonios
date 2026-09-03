@@ -11,6 +11,9 @@ public class PersonExternalId
     /// <summary>Ссылка на персону.</summary>
     public Guid MasterId { get; set; }
 
+    /// <summary>Ссылка на staging-запись (ext_persons).</summary>
+    public Guid? ExtPersonId { get; set; }
+
     /// <summary>Идентификатор внешней информационной системы.</summary>
     public string SourceSystemId { get; set; } = string.Empty;
 

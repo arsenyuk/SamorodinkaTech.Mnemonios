@@ -43,6 +43,9 @@ public record PersonData
 
     /// <summary>Документы ДУЛ.</summary>
     public IReadOnlyList<DocumentInfo> Documents { get; init; } = [];
+
+    /// <summary>Staging-записи (сырые запросы из ИС).</summary>
+    public IReadOnlyList<ExtPersonInfo> ExtPersons { get; init; } = [];
 }
 
 /// <summary>
@@ -100,6 +103,48 @@ public record DocumentInfo
 
     /// <summary>Хеш документа (первые 16 символов).</summary>
     public string DocumentHashPreview { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Информация о staging-запросе (ext_persons, без ПДн).
+/// </summary>
+public record ExtPersonInfo
+{
+    /// <summary>Идентификатор staging-записи.</summary>
+    public Guid Id { get; init; }
+
+    /// <summary>Идентификатор системы-источника.</summary>
+    public string SourceSystemId { get; init; } = string.Empty;
+
+    /// <summary>Идентификатор персоны во внешней системе.</summary>
+    public string ExternalPersonId { get; init; } = string.Empty;
+
+    /// <summary>Типизированный классификатор.</summary>
+    public string? ExternalPersonType { get; init; }
+
+    /// <summary>Дата создания запроса.</summary>
+    public DateTime CreatedAt { get; init; }
+
+    /// <summary>Дата обработки (null если не обработан).</summary>
+    public DateTime? ProcessedAt { get; init; }
+
+    /// <summary>Дефекты этого staging-запроса.</summary>
+    public IReadOnlyList<ExtPersonDefectInfo> Defects { get; init; } = [];
+}
+
+/// <summary>
+/// Информация о дефекте staging-запроса.
+/// </summary>
+public record ExtPersonDefectInfo
+{
+    /// <summary>Тип дефекта.</summary>
+    public string DefectType { get; init; } = string.Empty;
+
+    /// <summary>Описание дефекта.</summary>
+    public string DefectMessage { get; init; } = string.Empty;
+
+    /// <summary>Имя поля.</summary>
+    public string? FieldName { get; init; }
 }
 
 /// <summary>

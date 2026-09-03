@@ -51,9 +51,10 @@ public class PersonResolveService : IPersonResolveService
             throw new ArgumentException($"Validation failed: {string.Join("; ", validation.Errors)}");
 
         var defects = PersonResolveValidator.ValidateDefects(request);
+        var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
 
-        // --- Staging: create ext_persons record from raw incoming data ---
-        var extPerson = CreateExtPersonEntity(request);
+        // --- Staging: create ext_persons record with hashes ---
+        var extPerson = CreateExtPersonEntity(request, computedKeys);
         var extDefects = CreateExtDefectEntities(extPerson.Id, defects);
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
@@ -70,7 +71,7 @@ public class PersonResolveService : IPersonResolveService
 
             // --- Process golden records ---
             var response = await ResolveByMatchingAsync(
-                request, defects, extPerson, cancellationToken);
+                request, defects, extPerson, computedKeys, cancellationToken);
 
             // --- Mark staging record as processed ---
             var goldenMasterId = response.MasterId;
@@ -90,9 +91,9 @@ public class PersonResolveService : IPersonResolveService
         ResolveRequest request,
         IReadOnlyList<DefectInfo> defects,
         ExtPerson extPerson,
+        IReadOnlyList<IdentificationKey> computedKeys,
         CancellationToken cancellationToken)
     {
-        var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
 
         // 0. Проверить существующую внешнюю ссылку — если внешний ID уже привязан
         //    к персоне, это та же самая персона (вне зависимости от составных ключей ФИО)
@@ -358,7 +359,7 @@ public class PersonResolveService : IPersonResolveService
         await _repository.SaveDefectsAsync(entityDefects, cancellationToken);
     }
 
-    private static ExtPerson CreateExtPersonEntity(ResolveRequest request)
+    private static ExtPerson CreateExtPersonEntity(ResolveRequest request, IReadOnlyList<IdentificationKey> computedKeys)
     {
         return new ExtPerson
         {
@@ -366,6 +367,12 @@ public class PersonResolveService : IPersonResolveService
             SourceSystemId = request.SourceSystemId,
             ExternalPersonId = request.ExternalPersonId,
             ExternalPersonType = request.ExternalPersonType,
+            KeyInn = computedKeys.FirstOrDefault(k => k.KeyType == "inn")?.KeyValue,
+            KeySnils = computedKeys.FirstOrDefault(k => k.KeyType == "snils")?.KeyValue,
+            KeyDul = computedKeys.FirstOrDefault(k => k.KeyType == "dul")?.KeyValue,
+            KeyInnFio = computedKeys.FirstOrDefault(k => k.KeyType == "inn_fio")?.KeyValue,
+            KeySnilsFio = computedKeys.FirstOrDefault(k => k.KeyType == "snils_fio")?.KeyValue,
+            KeyDulFio = computedKeys.FirstOrDefault(k => k.KeyType == "dul_fio")?.KeyValue,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -422,6 +429,7 @@ public class PersonResolveService : IPersonResolveService
         {
             Id = Guid.NewGuid(),
             MasterId = masterId,
+            ExtPersonId = extPersonId,
             SourceSystemId = request.SourceSystemId,
             ExternalPersonId = request.ExternalPersonId,
             ExternalPersonType = request.ExternalPersonType,

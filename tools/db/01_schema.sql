@@ -121,7 +121,12 @@ CREATE TABLE ext_persons (
     external_person_id       varchar(255) NOT NULL,
     external_person_type     varchar(255),
     requested_person_id      uuid,
-    processing_status        varchar(20) NOT NULL DEFAULT 'pending',
+    key_inn                  varchar(255),
+    key_snils                varchar(255),
+    key_dul                  varchar(255),
+    key_inn_fio              varchar(255),
+    key_snils_fio            varchar(255),
+    key_dul_fio              varchar(255),
     created_at               timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     processed_at             timestamp with time zone
 );
