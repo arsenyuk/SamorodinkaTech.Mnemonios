@@ -1,0 +1,51 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Очередь стюарда";
+}
+
+<h1>Очередь на обработку</h1>
+
+@if (!Model.PendingReviews.Any())
+{
+    <p>Нет записей на обработку.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Person A</th>
+                <th>Person B</th>
+                <th>Совпавший ключ</th>
+                <th>Конфликт</th>
+                <th>Создано</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var review in Model.PendingReviews)
+            {
+                <tr>
+                    <td>@review.Id</td>
+                    <td>@review.PersonAId</td>
+                    <td>@review.PersonBId</td>
+                    <td>@review.SharedKeyType</td>
+                    <td>@review.ConflictKeyType</td>
+                    <td>@review.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>
+                        <form method="post" asp-page="/Review/Confirm" style="display:inline">
+                            <input type="hidden" name="reviewId" value="@review.Id" />
+                            <button type="submit" class="btn btn-success btn-sm">Подтвердить</button>
+                        </form>
+                        <form method="post" asp-page="/Review/Reject" style="display:inline">
+                            <input type="hidden" name="reviewId" value="@review.Id" />
+                            <button type="submit" class="btn btn-danger btn-sm">Отклонить</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

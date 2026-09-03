@@ -341,6 +341,125 @@ public class PersonResolveServiceTests
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
+    [Fact]
+    public async Task ResolveAsync_ProofMatchButFioMismatch_Ambiguous()
+    {
+        // Запрос: ИНН = 7707083893, ФИО = Иван Иванов
+        var request = CreateRequest(evidence: new Evidence { Inn = "7707083893" });
+        var existingPersonId = Guid.NewGuid();
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([existingPersonId]);
+
+        var normalizationService = new NormalizationService();
+        var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
+        var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
+
+        var dbContext = CreateDbContext();
+        dbContext.Persons.Add(new Person
+        {
+            MasterId = existingPersonId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        // Master имеет тот же ИНН, но другое ФИО (Петр Петров)
+        var masterRequest = CreateRequest(firstName: "Петр", lastName: "Петров", evidence: new Evidence { Inn = "7707083893" });
+        var masterKeys = keyService.ComputeKeys(masterRequest, 1);
+
+        foreach (var key in masterKeys)
+        {
+            dbContext.PersonIdentificationKeys.Add(new PersonIdentificationKey
+            {
+                Id = Guid.NewGuid(),
+                MasterId = existingPersonId,
+                KeyType = key.KeyType,
+                KeyValue = key.KeyValue,
+                NormalizationVersion = 1,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        var sut = new PersonResolveService(
+            _repositoryMock.Object,
+            normalizationService,
+            keyService,
+            _cessationServiceMock.Object,
+            _mergeServiceMock.Object,
+            dbContext);
+
+        var result = await sut.ResolveAsync(request);
+
+        // ИНН совпадает (inn), но inn_fio не совпадает из-за разных ФИО → Ambiguous
+        result.Status.Should().Be(PersonMatchStatus.Ambiguous);
+        result.KeyConflicts.Should().Contain(c => c.KeyType == "inn_fio");
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ProofAndFioMatch_Matched()
+    {
+        // Запрос: ИНН = 7707083893, ФИО = Иван Иванов
+        var request = CreateRequest(evidence: new Evidence { Inn = "7707083893" });
+        var existingPersonId = Guid.NewGuid();
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([existingPersonId]);
+        _repositoryMock
+            .Setup(r => r.TryUpdateExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((false, (Guid?)null));
+        _repositoryMock
+            .Setup(r => r.AddExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var normalizationService = new NormalizationService();
+        var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
+        var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
+
+        var dbContext = CreateDbContext();
+        dbContext.Persons.Add(new Person
+        {
+            MasterId = existingPersonId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        // Master имеет тот же ИНН и то же ФИО
+        var masterKeys = keyService.ComputeKeys(request, 1);
+
+        foreach (var key in masterKeys)
+        {
+            dbContext.PersonIdentificationKeys.Add(new PersonIdentificationKey
+            {
+                Id = Guid.NewGuid(),
+                MasterId = existingPersonId,
+                KeyType = key.KeyType,
+                KeyValue = key.KeyValue,
+                NormalizationVersion = 1,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        var sut = new PersonResolveService(
+            _repositoryMock.Object,
+            normalizationService,
+            keyService,
+            _cessationServiceMock.Object,
+            _mergeServiceMock.Object,
+            dbContext);
+
+        var result = await sut.ResolveAsync(request);
+
+        // ИНН и ФИО совпадают → M > 0 (включая inn_fio), K = 0 → Matched
+        result.Status.Should().Be(PersonMatchStatus.Matched);
+        result.MasterId.Should().Be(existingPersonId);
+    }
+
 
 
     private static ResolveRequest CreateRequest(

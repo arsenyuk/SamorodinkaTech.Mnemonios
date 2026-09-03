@@ -95,11 +95,9 @@ public class PersonResolveService : IPersonResolveService
     {
         var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
 
-        // Только сильные идентификаторы для матчинга
-        var strongKeys = computedKeys.Where(k => k.KeyType is "inn" or "snils" or "dul").ToList();
-        var matchingKeyValues = computedKeys
-            .Where(k => k.KeyType is "inn" or "snils" or "dul" or "inn_fio" or "snils_fio" or "dul_fio")
-            .Select(k => k.KeyValue);
+        // Все ключи для матчинга: proof + составные ФИО
+        var allMatchingKeys = computedKeys.Where(k => k.KeyType is "inn" or "snils" or "dul" or "inn_fio" or "snils_fio" or "dul_fio").ToList();
+        var matchingKeyValues = allMatchingKeys.Select(k => k.KeyValue);
 
         // 1. Найти всех кандидатов по любому ключу
         var candidateIds = await _repository.FindPersonIdsByKeysAsync(matchingKeyValues, cancellationToken);
@@ -122,7 +120,7 @@ public class PersonResolveService : IPersonResolveService
             int m = 0, k = 0;
             var conflicts = new List<KeyConflict>();
 
-            foreach (var requestKey in strongKeys)
+            foreach (var requestKey in allMatchingKeys)
             {
                 var existing = existingKeys.FirstOrDefault(e => e.KeyType == requestKey.KeyType);
                 if (existing is null)
