@@ -117,25 +117,29 @@
 ```
 SamorodinkaTech.Mnemonios/
 ├── src/
-│   ├── Domain/                 # Core domain (Entities, Enums, Interfaces)
-│   ├── Infrastructure/         # Data access, external services
-│   ├── Common/                 # Shared utilities
-│   └── Worker/                 # Side-car: периодические задачи (planner + tasks)
+│   ├── Applications/             # Исполняемые проекты
+│   │   ├── Api/                  # Web API
+│   │   ├── Steward/              # Web UI
+│   │   └── Worker/               # Side-car: периодические задачи
+│   └── Core/                     # Библиотеки
+│       ├── Domain/               # Доменная логика (Entities, Enums, Interfaces)
+│       ├── Infrastructure/       # Data access, внешние сервисы
+│       └── Common/               # Общие утилиты
 ├── tests/
-│   ├── Unit/                   # Unit tests (xUnit + Moq)
-│   ├── Integration/            # Integration tests
-│   └── Functional/             # E2E tests
-├── docs/                       # Documentation
-│   └── decision_records/       # Architecture Decision Records
+│   ├── Unit/                     # Unit tests (xUnit + Moq)
+│   ├── Integration/              # Integration tests
+│   └── Functional/               # E2E tests
+├── docs/                         # Документация
+│   └── decision_records/         # Architecture Decision Records
 ├── tools/
-│   └── db/                     # SQL scripts (01_schema, 02_seed, 03_demo)
-├── .editorconfig               # Coding style rules
-├── .gitignore                  # Git ignore rules
-├── .gitattributes              # Git attributes
-├── global.json                 # .NET SDK version pinning
-├── AGENTS.md                   # AI assistant rules (this file)
-├── CONTRIBUTING.md             # Contributor guidelines
-└── docker-compose.yml          # Docker services
+│   └── db/                       # SQL scripts (01_schema, 02_seed, 03_demo)
+├── .editorconfig                 # Правила стиля кода
+├── .gitignore                    # Правила игнорирования git
+├── .gitattributes                # Атрибуты git
+├── global.json                   # Версия .NET SDK
+├── AGENTS.md                     # Правила для AI-ассистентов (этот файл)
+├── CONTRIBUTING.md               # Руководство контрибьютора
+└── docker-compose.yml            # Docker-сервисы
 ```
 
 ---

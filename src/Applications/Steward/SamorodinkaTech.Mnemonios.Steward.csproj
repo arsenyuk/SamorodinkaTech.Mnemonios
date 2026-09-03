@@ -14,9 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Infrastructure\SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
-    <ProjectReference Include="..\Domain\SamorodinkaTech.Mnemonios.Domain.csproj" />
-    <ProjectReference Include="..\Common\SamorodinkaTech.Mnemonios.Common.csproj" />
+    <ProjectReference Include="..\..\Core\Infrastructure\SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Core\Domain\SamorodinkaTech.Mnemonios.Domain.csproj" />
+    <ProjectReference Include="..\..\Core\Common\SamorodinkaTech.Mnemonios.Common.csproj" />
   </ItemGroup>
 
 </Project>

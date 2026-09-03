@@ -36,7 +36,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: src/Worker/Dockerfile
+      dockerfile: src/Applications/Worker/Dockerfile
     container_name: mnemonios-worker
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mnemonios};Username=${POSTGRES_USER:-mnemonios};Password=${POSTGRES_PASSWORD:-mnemonios_dev}
@@ -51,7 +51,7 @@ services:
   steward:
     build:
       context: .
-      dockerfile: src/Steward/Dockerfile
+      dockerfile: src/Applications/Steward/Dockerfile
     container_name: mnemonios-steward
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mnemonios};Username=${POSTGRES_USER:-mnemonios};Password=${POSTGRES_PASSWORD:-mnemonios_dev}

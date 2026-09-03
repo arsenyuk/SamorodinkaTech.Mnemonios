@@ -1,19 +1,26 @@
 <Solution>
   <Folder Name="/src/" />
-  <Folder Name="/src/Api/">
-    <Project Path="src/Api/SamorodinkaTech.Mnemonios.Api.csproj" />
+  <Folder Name="/src/Applications/">
+    <Folder Name="/src/Applications/Api/">
+      <Project Path="src/Applications/Api/SamorodinkaTech.Mnemonios.Api.csproj" />
+    </Folder>
+    <Folder Name="/src/Applications/Steward/">
+      <Project Path="src/Applications/Steward/SamorodinkaTech.Mnemonios.Steward.csproj" />
+    </Folder>
+    <Folder Name="/src/Applications/Worker/">
+      <Project Path="src/Applications/Worker/SamorodinkaTech.Mnemonios.Worker.csproj" />
+    </Folder>
   </Folder>
-  <Folder Name="/src/Common/">
-    <Project Path="src/Common/SamorodinkaTech.Mnemonios.Common.csproj" />
-  </Folder>
-  <Folder Name="/src/Domain/">
-    <Project Path="src/Domain/SamorodinkaTech.Mnemonios.Domain.csproj" />
-  </Folder>
-  <Folder Name="/src/Infrastructure/">
-    <Project Path="src/Infrastructure/SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
-  </Folder>
-  <Folder Name="/src/Worker/">
-    <Project Path="src/Worker/SamorodinkaTech.Mnemonios.Worker.csproj" />
+  <Folder Name="/src/Core/">
+    <Folder Name="/src/Core/Common/">
+      <Project Path="src/Core/Common/SamorodinkaTech.Mnemonios.Common.csproj" />
+    </Folder>
+    <Folder Name="/src/Core/Domain/">
+      <Project Path="src/Core/Domain/SamorodinkaTech.Mnemonios.Domain.csproj" />
+    </Folder>
+    <Folder Name="/src/Core/Infrastructure/">
+      <Project Path="src/Core/Infrastructure/SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
+    </Folder>
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Integration/">

@@ -28,8 +28,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Domain\SamorodinkaTech.Mnemonios.Domain.csproj" />
-    <ProjectReference Include="..\..\src\Infrastructure\SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Core\Domain\SamorodinkaTech.Mnemonios.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Core\Infrastructure\SamorodinkaTech.Mnemonios.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
