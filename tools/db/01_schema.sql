@@ -216,3 +216,19 @@ CREATE TABLE person_review_queue (
 );
 
 CREATE INDEX ix_person_review_queue_status ON person_review_queue (status) WHERE status = 'pending';
+
+-- -----------------------------------------------------------------------------
+-- url_masks — URL-маски для триад (ЮЛ, Система, Тип объекта)
+-- -----------------------------------------------------------------------------
+CREATE TABLE url_masks (
+    id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_unit_key varchar(100) NOT NULL DEFAULT '',
+    source_system_id      varchar(100) NOT NULL,
+    external_person_type  varchar(255) NOT NULL DEFAULT '',
+    url_pattern           varchar(500) NOT NULL,
+    created_at            timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at            timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE UNIQUE INDEX ux_url_masks_triad
+    ON url_masks (organization_unit_key, source_system_id, external_person_type);

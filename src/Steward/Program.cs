@@ -19,6 +19,7 @@ builder.Services.AddScoped<IIdentificationKeyService, IdentificationKeyService>(
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IPersonMergeService, PersonMergeService>();
 builder.Services.AddScoped<IStewardService, StewardService>();
+builder.Services.AddScoped<IUrlMaskService, UrlMaskService>();
 
 builder.Services.AddRazorPages();
 

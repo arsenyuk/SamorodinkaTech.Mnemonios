@@ -46,16 +46,26 @@
             <div class="table-responsive">
                 <table class="table table-sm mb-0">
                     <thead>
-                        <tr><th>Система</th><th>Внешний ID</th><th>Тип</th><th>Юр. лицо</th></tr>
+                        <tr><th>Система</th><th>Внешний ID</th><th>Тип</th><th>Юр. лицо</th><th></th></tr>
                     </thead>
                     <tbody>
                         @foreach (var e in p.ExternalIds)
                         {
+                            var urlKey = (e.SourceSystemId, e.ExternalPersonId, e.ExternalPersonType ?? "");
+                            Model.ExternalUrls.TryGetValue(urlKey, out var url);
                             <tr>
                                 <td><span class="badge bg-primary">@e.SourceSystemId</span></td>
                                 <td><code>@e.ExternalPersonId</code></td>
                                 <td>@(e.ExternalPersonType ?? "—")</td>
                                 <td>@(e.OrganizationUnitKey ?? "—")</td>
+                                <td>
+                                    @if (url is not null)
+                                    {
+                                        <a href="@url" target="_blank" class="btn btn-outline-success btn-sm">
+                                            <i class="bi bi-box-arrow-up-right"></i> Открыть в ИС
+                                        </a>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>

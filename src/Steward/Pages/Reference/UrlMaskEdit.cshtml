@@ -1,0 +1,61 @@
+@page
+@model UrlMaskEditModel
+@{
+    ViewData["Title"] = "Редактирование URL-маски";
+}
+
+<div class="d-flex align-items-center mb-4">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+    <h1 class="mb-0">
+        @if (Model.ExistingMask is not null)
+        {
+            <span>Редактирование URL-маски</span>
+        }
+        else
+        {
+            <span>Новая URL-маска</span>
+        }
+    </h1>
+</div>
+
+<div class="card" style="max-width: 700px;">
+    <div class="card-body">
+        <dl class="row mb-3">
+            <dt class="col-sm-4">Юр. лицо</dt>
+            <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.OrganizationUnitKey) ? "—" : Model.OrganizationUnitKey)</dd>
+            <dt class="col-sm-4">Система</dt>
+            <dd class="col-sm-8"><span class="badge bg-primary">@Model.SourceSystemId</span></dd>
+            <dt class="col-sm-4">Тип объекта</dt>
+            <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ExternalPersonType) ? "—" : Model.ExternalPersonType)</dd>
+        </dl>
+
+        <form method="post">
+            <input type="hidden" name="OrganizationUnitKey" value="@Model.OrganizationUnitKey" />
+            <input type="hidden" name="SourceSystemId" value="@Model.SourceSystemId" />
+            <input type="hidden" name="ExternalPersonType" value="@Model.ExternalPersonType" />
+
+            <div class="mb-3">
+                <label for="UrlPattern" class="form-label">URL-маска</label>
+                <input type="text" class="form-control" id="UrlPattern" name="UrlPattern"
+                       value="@Model.UrlPattern"
+                       placeholder="https://example.com/employee/{external_person_id}" />
+                <div class="form-text">
+                    Плейсхолдеры: <code>{external_person_id}</code>, <code>{source_system_id}</code>, <code>{organization_unit_key}</code>
+                </div>
+                @if (Model.ModelState.TryGetValue("UrlPattern", out var ms) && ms.Errors.Any())
+                {
+                    <div class="text-danger">@ms.Errors.First().ErrorMessage</div>
+                }
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Сохранить
+                </button>
+                <a href="/Reference/UrlMasks" class="btn btn-outline-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
