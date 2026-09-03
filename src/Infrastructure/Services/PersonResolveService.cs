@@ -95,99 +95,117 @@ public class PersonResolveService : IPersonResolveService
     {
         var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
 
-        // Только сильные идентификаторы для матчинга.
-        // Standalone fio/fio_full НЕ используются — ФИО не является сильным доказательством.
+        // Только сильные идентификаторы для матчинга
+        var strongKeys = computedKeys.Where(k => k.KeyType is "inn" or "snils" or "dul").ToList();
         var matchingKeyValues = computedKeys
             .Where(k => k.KeyType is "inn" or "snils" or "dul" or "inn_fio" or "snils_fio" or "dul_fio")
             .Select(k => k.KeyValue);
 
-        var matchedPersonIds = await _repository.FindPersonIdsByKeysAsync(matchingKeyValues, cancellationToken);
+        // 1. Найти всех кандидатов по любому ключу
+        var candidateIds = await _repository.FindPersonIdsByKeysAsync(matchingKeyValues, cancellationToken);
 
-        if (matchedPersonIds.Count > 1)
+        if (candidateIds.Count == 0)
         {
-            // Попытка автоматического слияния: если ИНН из запроса совпадает
-            // только с одним из найденных лиц — это surviving, остальные merged.
-            var innKey = computedKeys.FirstOrDefault(k => k.KeyType == "inn");
+            // Unmatched — создаём нового
+            return await CreateNewPersonAsync(request, defects, extPerson, computedKeys, cancellationToken);
+        }
 
-            if (innKey is not null)
+        // 2. Для каждого кандидата посчитать M (совпадений), K (в мастере, не совпадают)
+        var candidateScores = new List<(Guid MasterId, int M, int K, List<KeyConflict> Conflicts)>();
+
+        foreach (var masterId in candidateIds)
+        {
+            var existingKeys = await _context.PersonIdentificationKeys
+                .Where(k => k.MasterId == masterId)
+                .ToListAsync(cancellationToken);
+
+            int m = 0, k = 0;
+            var conflicts = new List<KeyConflict>();
+
+            foreach (var requestKey in strongKeys)
             {
-                var innMatchedIds = await _repository.FindPersonIdsByKeysAsync(
-                    [innKey.KeyValue], cancellationToken);
-
-                if (innMatchedIds.Count == 1)
+                var existing = existingKeys.FirstOrDefault(e => e.KeyType == requestKey.KeyType);
+                if (existing is null)
                 {
-                    var survivingId = innMatchedIds[0];
-                    var mergedIds = matchedPersonIds.Where(id => id != survivingId).ToList();
+                    // Ключа нет в мастере — новые данные, OK
+                    continue;
+                }
 
-                    foreach (var mergedId in mergedIds)
-                    {
-                        await _mergeService.MergePersonsAsync(
-                            survivingId, mergedId, "inn_match", cancellationToken);
-                    }
-
-                    // После слияния — обработать как Matched
-                    matchedPersonIds = [survivingId];
+                if (existing.KeyValue == requestKey.KeyValue)
+                {
+                    m++;
                 }
                 else
                 {
-                    // ИНН совпадает с несколькими лицами — настоящий конфликт
-                    return new ResolveResponse
-                    {
-                        Status = PersonMatchStatus.Conflict,
-                        MasterId = null,
-                        HasDefects = defects.Count > 0,
-                        Defects = defects
-                    };
+                    k++;
+                    conflicts.Add(new KeyConflict(requestKey.KeyType));
                 }
             }
-            else
-            {
-                // Нет ИНН в запросе — конфликт не разрешим автоматически
-                return new ResolveResponse
-                {
-                    Status = PersonMatchStatus.Conflict,
-                    MasterId = null,
-                    HasDefects = defects.Count > 0,
-                    Defects = defects
-                };
-            }
+
+            candidateScores.Add((masterId, m, k, conflicts));
         }
 
-        if (matchedPersonIds.Count == 1)
+        // 3. Выбрать кандидата с максимальным M, при равенстве — минимальный K
+        var best = candidateScores
+            .OrderByDescending(c => c.M)
+            .ThenBy(c => c.K)
+            .First();
+
+        // 4. Проверить результат
+        if (best.K > 0)
         {
-            var masterId = matchedPersonIds[0];
-
-            // Enrich golden record with new data
-            await EnrichPersonAsync(masterId, request, cancellationToken);
-
-            // Добавить новые ключи идентификации (ИНН, СНИЛС, ДУЛ и составные)
-            await SaveNewKeysAsync(masterId, computedKeys, cancellationToken);
-
-            await LinkExternalIdAsync(masterId, request, extPerson.Id, cancellationToken);
-
-            await SaveDocumentAsync(masterId, request, computedKeys, cancellationToken);
-
-            if (defects.Count > 0)
-            {
-                await SaveDefectsAsync(masterId, defects, request, cancellationToken);
-            }
-
-            await _cessationService.CancelDeferredCessationAsync(
-                request.SourceSystemId, request.ExternalPersonId, cancellationToken);
-
-            var pendingCessationMatched = await _repository.GetPendingDeferredCessationAsync(
-                request.SourceSystemId, request.ExternalPersonId, cancellationToken);
-
-            return new ResolveResponse
-            {
-                Status = PersonMatchStatus.Matched,
-                MasterId = masterId,
-                HasDefects = defects.Count > 0,
-                Defects = defects,
-                ScheduledDeletionDate = pendingCessationMatched?.ScheduledDeletionDate
-            };
+            // Есть ключи в мастере которые не совпадают → Ambiguous
+            return await HandleAmbiguousAsync(
+                best.MasterId, best.Conflicts, request, extPerson, defects, computedKeys, cancellationToken);
         }
 
+        if (best.M == 0)
+        {
+            // Все ключи новые (нет совпадений с мастером) → Unmatched
+            return await CreateNewPersonAsync(request, defects, extPerson, computedKeys, cancellationToken);
+        }
+
+        // M > 0, K = 0 → Matched
+        var masterIdResult = best.MasterId;
+
+        // Обогатить голд-запись
+        await EnrichPersonAsync(masterIdResult, request, cancellationToken);
+
+        // Добавить новые ключи идентификации
+        await SaveNewKeysAsync(masterIdResult, computedKeys, cancellationToken);
+
+        await LinkExternalIdAsync(masterIdResult, request, extPerson.Id, cancellationToken);
+
+        await SaveDocumentAsync(masterIdResult, request, computedKeys, cancellationToken);
+
+        if (defects.Count > 0)
+        {
+            await SaveDefectsAsync(masterIdResult, defects, request, cancellationToken);
+        }
+
+        await _cessationService.CancelDeferredCessationAsync(
+            request.SourceSystemId, request.ExternalPersonId, cancellationToken);
+
+        var pendingCessationMatched = await _repository.GetPendingDeferredCessationAsync(
+            request.SourceSystemId, request.ExternalPersonId, cancellationToken);
+
+        return new ResolveResponse
+        {
+            Status = PersonMatchStatus.Matched,
+            MasterId = masterIdResult,
+            HasDefects = defects.Count > 0,
+            Defects = defects,
+            ScheduledDeletionDate = pendingCessationMatched?.ScheduledDeletionDate
+        };
+    }
+
+    private async Task<ResolveResponse> CreateNewPersonAsync(
+        ResolveRequest request,
+        IReadOnlyList<DefectInfo> defects,
+        ExtPerson extPerson,
+        IReadOnlyList<IdentificationKey> computedKeys,
+        CancellationToken cancellationToken)
+    {
         var newMasterId = Guid.NewGuid();
         var person = CreatePersonEntity(newMasterId);
         var identificationKeys = CreateKeyEntities(person.MasterId, computedKeys, request.OrganizationUnitKey);
@@ -426,5 +444,79 @@ public class PersonResolveService : IPersonResolveService
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<ResolveResponse> HandleAmbiguousAsync(
+        Guid existingMasterId,
+        List<KeyConflict> conflicts,
+        ResolveRequest request,
+        ExtPerson extPerson,
+        IReadOnlyList<DefectInfo> defects,
+        IReadOnlyList<IdentificationKey> computedKeys,
+        CancellationToken cancellationToken)
+    {
+        // Создать новую мастер-запись со ВСЕМИ ключами (уникальный индекс теперь по person_id)
+        var newMasterId = Guid.NewGuid();
+        var person = CreatePersonEntity(newMasterId);
+        var identificationKeys = CreateKeyEntities(newMasterId, computedKeys, request.OrganizationUnitKey);
+
+        // Проверить: внешняя ссылка уже существует?
+        var existingExtId = await _context.PersonExternalIds
+            .FirstOrDefaultAsync(e =>
+                e.SourceSystemId == request.SourceSystemId &&
+                e.ExternalPersonId == request.ExternalPersonId, cancellationToken);
+
+        if (existingExtId is not null)
+        {
+            // Ссылка уже есть — просто привязать к новой персоне
+            existingExtId.MasterId = newMasterId;
+            existingExtId.UpdatedAt = DateTime.UtcNow;
+            _context.Persons.Add(person);
+            foreach (var key in identificationKeys)
+            {
+                key.MasterId = newMasterId;
+                _context.PersonIdentificationKeys.Add(key);
+            }
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            var externalId = CreateExternalIdEntity(newMasterId, request, extPerson.Id);
+            await _repository.CreateAsync(person, identificationKeys, externalId, cancellationToken);
+        }
+
+        await SaveDocumentAsync(newMasterId, request, computedKeys, cancellationToken);
+
+        if (defects.Count > 0)
+        {
+            await SaveDefectsAsync(newMasterId, defects, request, cancellationToken);
+        }
+
+        await _cessationService.CancelDeferredCessationAsync(
+            request.SourceSystemId, request.ExternalPersonId, cancellationToken);
+
+        // Записать в очередь на обработку стюардом
+        var sharedKey = computedKeys.FirstOrDefault(k => k.KeyType is "inn" or "snils" or "dul");
+        var review = new PersonReviewQueue
+        {
+            Id = Guid.NewGuid(),
+            PersonAId = existingMasterId,
+            PersonBId = newMasterId,
+            SharedKeyType = sharedKey?.KeyType ?? string.Empty,
+            ConflictKeyType = string.Join(",", conflicts.Select(c => c.KeyType)),
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PersonReviewQueues.Add(review);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new ResolveResponse
+        {
+            Status = PersonMatchStatus.Ambiguous,
+            MasterId = newMasterId,
+            HasDefects = defects.Count > 0,
+            Defects = defects,
+            KeyConflicts = conflicts
+        };
     }
 }

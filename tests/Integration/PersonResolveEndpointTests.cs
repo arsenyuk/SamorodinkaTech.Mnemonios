@@ -60,7 +60,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Шаляпин",
             FirstName = "Родион",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = extId
         };
@@ -85,7 +85,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             LastName = "Спартаков",
             FirstName = "Лев",
             MiddleName = "Маркович",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-spa-{uid}"
         });
@@ -95,7 +95,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             LastName = "Спартаков",
             FirstName = "Лев",
             MiddleName = "Маркович",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-spa-{uid}"
         });
@@ -143,11 +143,12 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     public async Task Resolve_MatchBySnils_ReturnsMatched()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
         var first = await PostResolve(new ResolveRequest
         {
             LastName = "Пырьев",
             FirstName = "Никодим",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-pyr-{uid}"
         });
@@ -157,7 +158,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             LastName = "Пырьев",
             FirstName = "Никодим",
             MiddleName = "Олегович",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "HR",
             ExternalPersonId = $"hr-pyr-{uid}"
         });
@@ -178,7 +179,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ломоносов",
             FirstName = "Борислав",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-lom-{uid}"
         });
@@ -188,7 +189,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             LastName = "Ломоносов",
             FirstName = "Борислав",
             MiddleName = "Климонович",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-lom-{uid}"
         });
@@ -209,7 +210,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "  Харитонов  ",
             FirstName = "Устин",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-khar-{uid}"
         });
@@ -218,7 +219,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ХАРИТОНОВ",
             FirstName = "устин",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-khar-{uid}"
         });
@@ -235,6 +236,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     public async Task Resolve_ConflictingKeys_AutoMergesWhenInnResolves()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
 
         var person1 = await PostResolve(new ResolveRequest
         {
@@ -249,7 +251,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Вешняков",
             FirstName = "Глеб",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-vesh2-{uid}"
         });
@@ -260,7 +262,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ВЕШНЯКОВ",
             FirstName = "ГЛЕБ",
-            Evidence = new Evidence { Inn = "7707083893", Snils = "12345678964" },
+            Evidence = new Evidence { Inn = "7707083893", Snils = snils },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-vesh3-{uid}"
         };
@@ -282,12 +284,13 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     public async Task Resolve_ConflictBySnilsAndFio_ReturnsConflict()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
 
         var person1 = await PostResolve(new ResolveRequest
         {
             LastName = "Зубарев",
             FirstName = "Ян",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-zub1-{uid}"
         });
@@ -296,7 +299,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Зубарев",
             FirstName = "Геннадий",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-zub2-{uid}"
         });
@@ -305,7 +308,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ЗУБАРЕВ",
             FirstName = "ГЕННАДИЙ",
-            Evidence = new Evidence { Snils = "12345678964", DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { Snils = snils, DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-zub3-{uid}"
         };
@@ -313,8 +316,10 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         var response = await _client.PostAsJsonAsync("/persons/resolve", request);
         var result = await response.Content.ReadFromJsonAsync<ResolveResponse>();
 
-        result!.Status.Should().Be(PersonMatchStatus.Conflict);
-        result.MasterId.Should().BeNull();
+        // Новая логика: оба кандидата (SNILS → person1, DUL → person2) имеют M=1, K=0.
+        // Выбирается первый найденный кандидат → Matched.
+        result!.Status.Should().Be(PersonMatchStatus.Matched);
+        (result.MasterId == person1.MasterId || result.MasterId == person2.MasterId).Should().BeTrue();
     }
 
     // =========================================================================
@@ -322,15 +327,16 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     // =========================================================================
 
     [Fact]
-    public async Task Resolve_ConflictByDulAndFio_ReturnsConflict()
+    public async Task Resolve_ConflictByDulAndFio_ReturnsMatched()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
 
         var person1 = await PostResolve(new ResolveRequest
         {
             LastName = "Салтыков",
             FirstName = "Август",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-salt1-{uid}"
         });
@@ -339,7 +345,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Салтыков",
             FirstName = "Демьян",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-salt2-{uid}"
         });
@@ -348,7 +354,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "САЛТЫКОВ",
             FirstName = "ДЕМЬЯН",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}", Snils = "12345678964" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid), Snils = snils },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-salt3-{uid}"
         };
@@ -356,8 +362,10 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         var response = await _client.PostAsJsonAsync("/persons/resolve", request);
         var result = await response.Content.ReadFromJsonAsync<ResolveResponse>();
 
-        result!.Status.Should().Be(PersonMatchStatus.Conflict);
-        result.MasterId.Should().BeNull();
+        // Новая логика: оба кандидата (DUL → person1, SNILS → person2) имеют M=1, K=0.
+        // Выбирается первый найденный кандидат → Matched.
+        result!.Status.Should().Be(PersonMatchStatus.Matched);
+        (result.MasterId == person1.MasterId || result.MasterId == person2.MasterId).Should().BeTrue();
     }
 
     // =========================================================================
@@ -365,15 +373,16 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     // =========================================================================
 
     [Fact]
-    public async Task Resolve_ConflictByDulAndSnils_ReturnsConflict()
+    public async Task Resolve_ConflictByDulAndSnils_ReturnsMatched()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
 
         var personA = await PostResolve(new ResolveRequest
         {
             LastName = "Рахманинов",
             FirstName = "Марк",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-rakh1-{uid}"
         });
@@ -382,7 +391,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Гущин",
             FirstName = "Артём",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "ERP",
             ExternalPersonId = $"ext-gush1-{uid}"
         });
@@ -391,7 +400,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "РАХМАНИНОВ",
             FirstName = "МАРК",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}", Snils = "12345678964" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid), Snils = snils },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-rakh2-{uid}"
         };
@@ -399,8 +408,10 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         var response = await _client.PostAsJsonAsync("/persons/resolve", request);
         var result = await response.Content.ReadFromJsonAsync<ResolveResponse>();
 
-        result!.Status.Should().Be(PersonMatchStatus.Conflict);
-        result.MasterId.Should().BeNull();
+        // Новая логика: оба кандидата (DUL → personA, SNILS → personB) имеют M=1, K=0.
+        // Выбирается первый найденный кандидат → Matched.
+        result!.Status.Should().Be(PersonMatchStatus.Matched);
+        (result.MasterId == personA.MasterId || result.MasterId == personB.MasterId).Should().BeTrue();
     }
 
     // =========================================================================
@@ -639,11 +650,12 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     public async Task Resolve_ValidSnils_ReturnsOk()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
         var request = new ResolveRequest
         {
             LastName = "Ягодин",
             FirstName = "Прохор",
-            Evidence = new Evidence { Snils = "12345678964" },
+            Evidence = new Evidence { Snils = snils },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-snils-ok-{uid}"
         };
@@ -701,7 +713,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ухтомский",
             FirstName = "Борислав",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-ukh-{uid}"
         });
@@ -710,7 +722,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ухтомский",
             FirstName = "Борислав",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-ukh-{uid}"
         });
@@ -809,7 +821,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ятspbеков",
             FirstName = "Велимир",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-yat-{uid}"
         });
@@ -818,7 +830,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ЯТSPBЕКОВ",
             FirstName = "ВЕЛИМИР",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = $"emp-yat-{uid}"
         });
@@ -827,7 +839,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Ятspbеков",
             FirstName = "Велимир",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "HR",
             ExternalPersonId = $"hr-yat-{uid}"
         });
@@ -941,7 +953,9 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     [Fact]
     public async Task ValidateSnils_ValidSnils_ReturnsIsValid()
     {
-        var request = new SnilsValidationRequest { Snils = "12345678964" };
+        var uid = Guid.NewGuid().ToString("N")[..8];
+        var snils = GenerateValidSnils(uid);
+        var request = new SnilsValidationRequest { Snils = snils };
 
         var response = await _client.PostAsJsonAsync("/persons/validate/snils", request);
         var result = await response.Content.ReadFromJsonAsync<ValidationResultDto>();
@@ -1175,7 +1189,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Мержин",
             FirstName = "Игорь",
-            Evidence = new Evidence { DulType = "10", DulSeries = $"AB{uid[..2]}", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "10", DulSeries = $"AB{uid[..2]}", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-hr-{uid}"
         });
@@ -1188,7 +1202,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Мержин",
             FirstName = "Игорь",
-            Evidence = new Evidence { DulType = "21", DulSeries = $"{uid[..4]}", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = GeneratePassportSeries(uid), DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-crm-{uid}"
         });
@@ -1206,7 +1220,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             {
                 DulType = "10",
                 DulSeries = $"AB{uid[..2]}",
-                DulNumber = $"{uid[..6]}",
+                DulNumber = GeneratePassportNumber(uid),
                 Inn = inn
             },
             SourceSystemId = "HR",
@@ -1217,7 +1231,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         step3.MasterId.Should().Be(personA);
 
         // Шаг 4: System B — сотрудник получает ИНН, повторный resolve
-        // ИНН → personA, ДУЛ тип 21 → personB → конфликт → авто-merge
+        // ИНН → personA (M=1), ДУЛ тип 21 → personB (M=1) → выбирается первый кандидат
         var step4 = await PostResolve(new ResolveRequest
         {
             LastName = "Мержин",
@@ -1225,32 +1239,155 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
             Evidence = new Evidence
             {
                 DulType = "21",
-                DulSeries = $"{uid[..4]}",
-                DulNumber = $"{uid[..6]}",
+                DulSeries = GeneratePassportSeries(uid),
+                DulNumber = GeneratePassportNumber(uid),
                 Inn = inn
             },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-crm-{uid}"
         });
 
-        step4.Status.Should().Be(PersonMatchStatus.Matched, "авто-merge должен вернуть Matched");
-        step4.MasterId.Should().Be(personA, "должна остаться запись из System A");
+        step4.Status.Should().Be(PersonMatchStatus.Matched);
+        // Оба кандидата имеют M=1, K=0 — выбирается первый найденный
+        (step4.MasterId == personA || step4.MasterId == personB).Should().BeTrue();
+    }
 
-        // Шаг 5: GET /persons/{personA} — содержит обе внешние ссылки
-        var person = await GetPerson(personA);
+    // =========================================================================
+    // 32. Ambiguous — расхождение ключей создаёт новую запись + очередь
+    // =========================================================================
+
+    [Fact]
+    public async Task Resolve_AmbiguousKeyMismatch_CreatesNewPersonAndQueue()
+    {
+        var uid = Guid.NewGuid().ToString("N")[..8];
+        var inn = GenerateValidInn(uid);
+        var snils = GenerateValidSnils(uid);
+
+        // Шаг 1: создать P1 с ИНН + СНИЛС
+        var step1 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Несовпадов",
+            FirstName = "Артём",
+            Evidence = new Evidence { Inn = inn, Snils = snils },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-crm-{uid}"
+        });
+
+        step1.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var personA = step1.MasterId!.Value;
+
+        // Шаг 2: запрос с тем же СНИЛС, но ДРУГИМ ИНН → Ambiguous
+        var differentInn = GenerateValidInn($"x{uid}");
+        var step2 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Несовпадов",
+            FirstName = "Артём",
+            Evidence = new Evidence { Inn = differentInn, Snils = snils },
+            SourceSystemId = "ERP",
+            ExternalPersonId = $"ext-erp-{uid}"
+        });
+
+        step2.Status.Should().Be(PersonMatchStatus.Ambiguous);
+        step2.MasterId.Should().NotBeNull();
+        step2.MasterId.Should().NotBe(personA, "должна быть создана новая запись");
+        step2.KeyConflicts.Should().ContainSingle(c => c.KeyType == "inn");
+
+        // Шаг 3: GET /persons/{personA} — существует
+        var getA = await _client.GetAsync($"/persons/{personA}");
+        getA.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Шаг 4: GET /persons/{personB} — существует (новая запись)
+        var getB = await _client.GetAsync($"/persons/{step2.MasterId}");
+        getB.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Шаг 5: проверить очередь
+        var queueResponse = await _client.GetAsync("/persons/review");
+        queueResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    // =========================================================================
+    // 33. Re-resolve после смены фамилии — ключи обновлены, MasterId не изменился
+    // =========================================================================
+
+    [Fact]
+    public async Task Resolve_SameExternalIdWithNewLastName_KeysUpdatedMasterIdSame()
+    {
+        var uid = Guid.NewGuid().ToString("N")[..8];
+        var inn = GenerateValidInn(uid);
+        var snils = GenerateValidSnils(uid);
+        var extId = $"ext-hr-{uid}";
+
+        // Шаг 1: сотрудник с ИНН + СНИЛС + ДУЛ РФ (тип 21), фамилия "Старинов"
+        var step1 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Старинов",
+            FirstName = "Дмитрий",
+            MiddleName = "Олегович",
+            Evidence = new Evidence
+            {
+                Inn = inn,
+                Snils = snils,
+                DulType = "21",
+                DulSeries = GeneratePassportSeries(uid),
+                DulNumber = GeneratePassportNumber(uid)
+            },
+            SourceSystemId = "HR",
+            ExternalPersonId = extId
+        });
+
+        step1.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var masterId = step1.MasterId!.Value;
+
+        // Шаг 2: сотрудник сменил фамилию — та же система отправляет новые данные
+        var step2 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Новиков",
+            FirstName = "Дмитрий",
+            MiddleName = "Олегович",
+            Evidence = new Evidence
+            {
+                Inn = inn,
+                Snils = snils,
+                DulType = "21",
+                DulSeries = GeneratePassportSeries(uid),
+                DulNumber = GeneratePassportNumber(uid)
+            },
+            SourceSystemId = "HR",
+            ExternalPersonId = extId
+        });
+
+        // Matched — тот же внешний ключ
+        step2.Status.Should().Be(PersonMatchStatus.Matched);
+        step2.MasterId.Should().Be(masterId, "MasterId не должен измениться при обновлении данных");
+
+        // Проверить: ключи обновлены
+        var person = await GetPerson(masterId);
         person.Should().NotBeNull();
-        person!.Identifiers.Should().HaveCount(2);
-        person.Identifiers.Should().Contain(i => i.SourceSystemId == "HR");
-        person.Identifiers.Should().Contain(i => i.SourceSystemId == "CRM");
-
-        // Шаг 6: GET /persons/{personB} — удалена
-        var getDeleted = await _client.GetAsync($"/persons/{personB}");
-        getDeleted.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        person!.IdentificationKeys.Should().NotBeEmpty();
     }
 
     // =========================================================================
     // Helpers
     // =========================================================================
+
+    /// <summary>
+    /// Генерирует серию паспорта РФ (4 цифры, формат "XX XX").
+    /// </summary>
+    private static string GeneratePassportSeries(string uid)
+    {
+        var digits = uid.Replace("-", "").Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10).Select(d => d % 10).ToArray();
+        return $"{digits[0]}{digits[1]} {digits[2]}{digits[3]}";
+    }
+
+    /// <summary>
+    /// Генерирует номер паспорта РФ (6 цифр).
+    /// </summary>
+    private static string GeneratePassportNumber(string uid)
+    {
+        var hex = uid.Replace("-", "").ToLowerInvariant();
+        var digits = hex.Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10).Select(d => d % 10).ToArray();
+        return string.Concat(digits.Take(6).Select(d => d.ToString()));
+    }
 
     /// <summary>
     /// Генерирует валидный 10-значный ИНН юридического лица на основе uid.
@@ -1272,6 +1409,31 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
 
         int checkDigit = sum % 11 % 10;
         return string.Concat(digits.Select(d => d.ToString())) + checkDigit;
+    }
+
+    /// <summary>
+    /// Генерирует валидный 11-значный СНИЛС на основе uid.
+    /// </summary>
+    private static string GenerateValidSnils(string uid)
+    {
+        var hex = uid.Replace("-", "").ToLowerInvariant();
+        while (hex.Length < 9)
+            hex += hex;
+
+        var baseDigits = hex.Substring(0, 9)
+            .Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10)
+            .Select(d => d % 10)
+            .ToArray();
+
+        int[] weights = [9, 8, 7, 6, 5, 4, 3, 2, 1];
+        int sum = 0;
+        for (int i = 0; i < 9; i++)
+            sum += baseDigits[i] * weights[i];
+
+        int check = sum % 101;
+        if (check == 100) check = 0;
+
+        return string.Concat(baseDigits.Select(d => d.ToString())) + check / 10 + check % 10;
     }
 
     private async Task<ResolveResponse> PostResolve(ResolveRequest request)

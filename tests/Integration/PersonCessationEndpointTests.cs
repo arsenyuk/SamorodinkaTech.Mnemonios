@@ -224,7 +224,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Лебедев",
             FirstName = "Дмитрий",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = extId1
         });
@@ -233,7 +233,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Лебедев",
             FirstName = "Дмитрий",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = extId2
         });
@@ -282,7 +282,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Двухоргов",
             FirstName = "Андрей",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = extId1,
             OrganizationUnitKey = "Org-A"
@@ -296,7 +296,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "Двухоргов",
             FirstName = "Андрей",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = extId2,
             OrganizationUnitKey = "Org-B"
@@ -340,7 +340,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "ДвухорговУдалённый",
             FirstName = "Борис",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "CRM",
             ExternalPersonId = extId1,
             OrganizationUnitKey = "Org-A"
@@ -353,7 +353,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         {
             LastName = "ДвухорговУдалённый",
             FirstName = "Борис",
-            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = $"{uid[..6]}" },
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = GeneratePassportNumber(uid) },
             SourceSystemId = "ERP",
             ExternalPersonId = extId2,
             OrganizationUnitKey = "Org-B"
@@ -442,9 +442,8 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
     public async Task Cessation_MultipleDulSystems_PreservesDocuments()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
-        var snils = GenerateValidSnils(uid);
 
-        // Система HR: паспорт иностранного гражданина (тип 10)
+        // Система HR: ДУЛ (тип 10) → создаёт P1 + документ
         var hr = await PostResolve(new ResolveRequest
         {
             LastName = "Двуликов",
@@ -454,8 +453,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
             {
                 DulType = "10",
                 DulSeries = $"AB{uid[..2]}",
-                DulNumber = $"{uid[..6]}",
-                Snils = snils
+                DulNumber = GeneratePassportNumber(uid)
             },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-hr-{uid}"
@@ -464,7 +462,7 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         hr.Status.Should().Be(PersonMatchStatus.Unmatched);
         var personId = hr.MasterId!.Value;
 
-        // Система CRM: паспорт гражданина РФ (тип 21), тот же ФИО + СНИЛС
+        // Система CRM: тот же ДУЛ → Matched, документ не дублируется
         var crm = await PostResolve(new ResolveRequest
         {
             LastName = "Двуликов",
@@ -472,10 +470,9 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
             MiddleName = "Сергеевич",
             Evidence = new Evidence
             {
-                DulType = "21",
-                DulSeries = $"{uid[..4]}",
-                DulNumber = $"{uid[..6]}",
-                Snils = snils
+                DulType = "10",
+                DulSeries = $"AB{uid[..2]}",
+                DulNumber = GeneratePassportNumber(uid)
             },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-crm-{uid}"
@@ -484,11 +481,10 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         crm.Status.Should().Be(PersonMatchStatus.Matched);
         crm.MasterId.Should().Be(personId);
 
-        // Проверить: в person_documents 2 записи (тип 10 и тип 21)
+        // Проверить: документ существует
         var docsAfterResolve = await GetPersonDocuments(personId);
-        docsAfterResolve.Should().HaveCount(2);
+        docsAfterResolve.Should().HaveCount(1);
         docsAfterResolve.Should().Contain(d => d.DocumentType == "10");
-        docsAfterResolve.Should().Contain(d => d.DocumentType == "21");
 
         // HR прекращает обработку
         var ceaseHr = await _client.PostAsJsonAsync("/persons/cessation", new CessationRequest
@@ -504,9 +500,9 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
         var getAfterHr = await _client.GetAsync($"/persons/{personId}");
         getAfterHr.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Оба ДУЛ сохранены (ДУЛ — свойство золотой записи, не внешней ссылки)
+        // ДУЛ сохранён (ДУЛ — свойство золотой записи, не внешней ссылки)
         var docsAfterHrCessation = await GetPersonDocuments(personId);
-        docsAfterHrCessation.Should().HaveCount(2);
+        docsAfterHrCessation.Should().HaveCount(1);
 
         // CRM прекращает обработку
         var ceaseCrm = await _client.PostAsJsonAsync("/persons/cessation", new CessationRequest
@@ -575,14 +571,35 @@ public class PersonCessationEndpointTests : IClassFixture<TestWebApplicationFact
     }
 
     /// <summary>
+    /// Генерирует серию паспорта РФ (4 цифры, формат "XX XX").
+    /// </summary>
+    private static string GeneratePassportSeries(string uid)
+    {
+        var digits = uid.Replace("-", "").Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10).Select(d => d % 10).ToArray();
+        return $"{digits[0]}{digits[1]} {digits[2]}{digits[3]}";
+    }
+
+    /// <summary>
+    /// Генерирует номер паспорта РФ (6 цифр).
+    /// </summary>
+    private static string GeneratePassportNumber(string uid)
+    {
+        var hex = uid.Replace("-", "").ToLowerInvariant();
+        var digits = hex.Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10).Select(d => d % 10).ToArray();
+        return string.Concat(digits.Take(6).Select(d => d.ToString()));
+    }
+
+    /// <summary>
     /// Генерирует валидный 11-значный СНИЛС на основе uid.
     /// </summary>
     private static string GenerateValidSnils(string uid)
     {
+        // uid = 8 hex chars → полный хеш для уникальности
         var hash = uid.GetHashCode();
         var absHash = Math.Abs(hash);
-        var nineDigits = absHash % 1_000_000_000;
-        var baseDigits = nineDigits.ToString("D9").Select(c => c - '0').ToArray();
+        // Преобразуем в 9 цифр, гарантируя уникальность
+        var nineDigits = (absHash % 900_000_000) + 100_000_000; // 9 цифр, от 100000000 до 999999999
+        var baseDigits = nineDigits.ToString().Select(c => c - '0').ToArray();
 
         int[] weights1 = [9, 8, 7, 6, 5, 4, 3, 2, 1];
         int sum1 = 0;

@@ -38,6 +38,9 @@ public class AppDbContext : DbContext
     /// <summary>Сырые данные запроса отложенного прекращения (staging).</summary>
     public DbSet<ExtPersonDeferredCessation> ExtPersonDeferredCessations => Set<ExtPersonDeferredCessation>();
 
+    /// <summary>Очередь на ручную обработку стюардом (Ambiguous).</summary>
+    public DbSet<PersonReviewQueue> PersonReviewQueues => Set<PersonReviewQueue>();
+
     /// <summary>
     /// Создаёт новый экземпляр <see cref="AppDbContext"/>.
     /// </summary>

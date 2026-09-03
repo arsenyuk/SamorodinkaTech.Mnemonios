@@ -26,8 +26,8 @@ CREATE TABLE person_identification_keys (
     created_at            timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE UNIQUE INDEX ux_person_identification_keys_type_value
-    ON person_identification_keys (key_type, key_value);
+CREATE UNIQUE INDEX ux_person_identification_keys_type_value_person
+    ON person_identification_keys (key_type, key_value, person_id);
 CREATE INDEX ix_person_identification_keys_person_id
     ON person_identification_keys (person_id);
 
@@ -200,3 +200,19 @@ ALTER TABLE person_identification_keys
     ADD COLUMN organization_unit_key varchar(100);
 
 CREATE INDEX ix_person_identification_keys_organization_unit_key ON person_identification_keys (organization_unit_key);
+
+-- -----------------------------------------------------------------------------
+-- person_review_queue — очередь на ручную обработку стюардом (Ambiguous)
+-- -----------------------------------------------------------------------------
+CREATE TABLE person_review_queue (
+    id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    person_a_id       uuid NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    person_b_id       uuid NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    shared_key_type   varchar(50) NOT NULL,
+    conflict_key_type varchar(50) NOT NULL,
+    status            varchar(20) NOT NULL DEFAULT 'pending',
+    created_at        timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    reviewed_at       timestamp with time zone
+);
+
+CREATE INDEX ix_person_review_queue_status ON person_review_queue (status) WHERE status = 'pending';

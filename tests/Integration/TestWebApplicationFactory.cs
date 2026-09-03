@@ -13,8 +13,7 @@ using Serilog.Events;
 namespace Mnemonios.IntegrationTests;
 
 /// <summary>
-/// WebApplicationFactory: очистка БД, изоляция логирования тестов от сервиса.
-/// Сервис пишет в logs/app-{yyyyMMddHH}.log — тесты в logs/integration-{yyyyMMddHH}.log.
+/// WebApplicationFactory: очистка БД через TRUNCATE, изоляция логирования тестов.
 /// </summary>
 public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -26,7 +25,6 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
         var logDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "logs");
         Directory.CreateDirectory(logDir);
 
-        // Перехватываем UseSerilog из Program.cs — заменяем на тестовый логгер
         builder.UseSerilog((context, lc) =>
         {
             lc.MinimumLevel.Information()
@@ -94,6 +92,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
             TRUNCATE TABLE person_external_ids CASCADE;
             TRUNCATE TABLE person_documents CASCADE;
             TRUNCATE TABLE person_identification_keys CASCADE;
+            TRUNCATE TABLE person_review_queue CASCADE;
             TRUNCATE TABLE persons CASCADE;
         ";
         await command.ExecuteNonQueryAsync();

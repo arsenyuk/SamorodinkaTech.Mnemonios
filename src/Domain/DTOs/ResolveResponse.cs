@@ -21,4 +21,7 @@ public record ResolveResponse
 
     /// <summary>Scheduled deletion date if a deferred cessation is pending for this external link.</summary>
     public DateTime? ScheduledDeletionDate { get; init; }
+
+    /// <summary>Список расхождений ключей (при Status = Ambiguous).</summary>
+    public IReadOnlyList<KeyConflict> KeyConflicts { get; init; } = [];
 }

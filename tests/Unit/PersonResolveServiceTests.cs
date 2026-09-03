@@ -96,7 +96,48 @@ public class PersonResolveServiceTests
             .Setup(r => r.AddExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await _sut.ResolveAsync(request);
+        // Добавить персону и ключи в InMemory БД
+        var normalizationService = new NormalizationService();
+        var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
+        var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
+        var keys = keyService.ComputeKeys(request, 1);
+
+        var dbContext = CreateDbContext();
+
+        // Добавить персону (нужна для FK)
+        dbContext.Persons.Add(new Person
+        {
+            MasterId = existingPersonId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        // Добавить ключи
+        foreach (var key in keys)
+        {
+            dbContext.PersonIdentificationKeys.Add(new PersonIdentificationKey
+            {
+                Id = Guid.NewGuid(),
+                MasterId = existingPersonId,
+                KeyType = key.KeyType,
+                KeyValue = key.KeyValue,
+                NormalizationVersion = 1,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        // Создать _sut с тем же контекстом
+        var sut = new PersonResolveService(
+            _repositoryMock.Object,
+            normalizationService,
+            keyService,
+            _cessationServiceMock.Object,
+            _mergeServiceMock.Object,
+            dbContext);
+
+        var result = await sut.ResolveAsync(request);
 
         result.Status.Should().Be(PersonMatchStatus.Matched);
         result.MasterId.Should().Be(existingPersonId);
@@ -107,7 +148,7 @@ public class PersonResolveServiceTests
     }
 
     [Fact]
-    public async Task ResolveAsync_MultipleMatches_ReturnsConflict()
+    public async Task ResolveAsync_MultipleMatches_SelectsBestMatch()
     {
         var request = CreateRequest();
         var personId1 = Guid.NewGuid();
@@ -116,11 +157,51 @@ public class PersonResolveServiceTests
         _repositoryMock
             .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([personId1, personId2]);
+        _repositoryMock
+            .Setup(r => r.TryUpdateExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((false, (Guid?)null));
+        _repositoryMock
+            .Setup(r => r.AddExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        var result = await _sut.ResolveAsync(request);
+        // Добавить ключи для personId1 (совпадают с запросом)
+        var normalizationService = new NormalizationService();
+        var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
+        var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
+        var keys = keyService.ComputeKeys(request, 1);
 
-        result.Status.Should().Be(PersonMatchStatus.Conflict);
-        result.MasterId.Should().BeNull();
+        var dbContext = CreateDbContext();
+        dbContext.Persons.Add(new Person { MasterId = personId1, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        dbContext.Persons.Add(new Person { MasterId = personId2, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        await dbContext.SaveChangesAsync();
+
+        foreach (var key in keys)
+        {
+            dbContext.PersonIdentificationKeys.Add(new PersonIdentificationKey
+            {
+                Id = Guid.NewGuid(),
+                MasterId = personId1,
+                KeyType = key.KeyType,
+                KeyValue = key.KeyValue,
+                NormalizationVersion = 1,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        var sut = new PersonResolveService(
+            _repositoryMock.Object,
+            normalizationService,
+            keyService,
+            _cessationServiceMock.Object,
+            _mergeServiceMock.Object,
+            dbContext);
+
+        var result = await sut.ResolveAsync(request);
+
+        // Выбирается кандидат с наибольшим совпадением (personId1)
+        result.Status.Should().Be(PersonMatchStatus.Matched);
+        result.MasterId.Should().Be(personId1);
     }
 
     [Fact]
@@ -145,7 +226,39 @@ public class PersonResolveServiceTests
             .Setup(r => r.TryUpdateExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((true, (Guid?)Guid.NewGuid()));
 
-        await _sut.ResolveAsync(request);
+        // Добавить ключи в InMemory БД
+        var normalizationService = new NormalizationService();
+        var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
+        var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
+        var keys = keyService.ComputeKeys(request, 1);
+
+        var dbContext = CreateDbContext();
+        dbContext.Persons.Add(new Person { MasterId = existingPersonId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        await dbContext.SaveChangesAsync();
+
+        foreach (var key in keys)
+        {
+            dbContext.PersonIdentificationKeys.Add(new PersonIdentificationKey
+            {
+                Id = Guid.NewGuid(),
+                MasterId = existingPersonId,
+                KeyType = key.KeyType,
+                KeyValue = key.KeyValue,
+                NormalizationVersion = 1,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        var sut = new PersonResolveService(
+            _repositoryMock.Object,
+            normalizationService,
+            keyService,
+            _cessationServiceMock.Object,
+            _mergeServiceMock.Object,
+            dbContext);
+
+        await sut.ResolveAsync(request);
 
         _repositoryMock.Verify(r =>
             r.TryUpdateExternalIdAsync(It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()),
@@ -241,7 +354,16 @@ public class PersonResolveServiceTests
             LastName = lastName,
             SourceSystemId = "CRM",
             ExternalPersonId = "ext-12345",
-            Evidence = evidence
+            Evidence = evidence ?? new Evidence { DulType = "21", DulSeries = "4510", DulNumber = "123456" }
         };
+    }
+
+    private static AppDbContext CreateDbContext()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+        return new AppDbContext(options);
     }
 }

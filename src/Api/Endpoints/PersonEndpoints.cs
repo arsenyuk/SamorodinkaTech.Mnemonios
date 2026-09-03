@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Mnemonios.Domain.DTOs;
 using Mnemonios.Domain.Interfaces;
 using Mnemonios.Domain.Validation;
+using Mnemonios.Infrastructure.Persistence;
 
 namespace Mnemonios.Api.Endpoints;
 
@@ -71,6 +73,23 @@ public static class PersonEndpoints
             .WithName("GetDulClassifier")
             .WithSummary("Получение классификатора видов документов, удостоверяющих личность (ДУЛ).")
             .Produces<DulClassifierResponse>(StatusCodes.Status200OK);
+
+        group.MapGet("/review", HandleGetReviewQueueAsync)
+            .WithName("GetReviewQueue")
+            .WithSummary("Очередь на ручную обработку стюардом (Ambiguous).")
+            .Produces(StatusCodes.Status200OK);
+
+        group.MapPost("/review/{reviewId:guid}/confirm", HandleConfirmReviewAsync)
+            .WithName("ConfirmReview")
+            .WithSummary("Подтверждение: merge personB → personA.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/review/{reviewId:guid}/reject", HandleRejectReviewAsync)
+            .WithName("RejectReview")
+            .WithSummary("Отклонение: оставить записи раздельно.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
 
         return app;
     }
@@ -332,5 +351,74 @@ public static class PersonEndpoints
     {
         var classifier = DulClassifier.GetClassifier();
         return Results.Ok(classifier);
+    }
+
+    private static async Task<IResult> HandleGetReviewQueueAsync(
+        AppDbContext context,
+        CancellationToken ct)
+    {
+        var pending = await context.PersonReviewQueues
+            .Where(r => r.Status == "pending")
+            .OrderBy(r => r.CreatedAt)
+            .Select(r => new ReviewQueueDto
+            {
+                Id = r.Id,
+                PersonAId = r.PersonAId,
+                PersonBId = r.PersonBId,
+                SharedKeyType = r.SharedKeyType,
+                ConflictKeyType = r.ConflictKeyType,
+                Status = r.Status
+            })
+            .ToListAsync(ct);
+
+        return Results.Ok(pending);
+    }
+
+    private static async Task<IResult> HandleConfirmReviewAsync(
+        Guid reviewId,
+        AppDbContext context,
+        IPersonMergeService mergeService,
+        ILoggerFactory loggerFactory,
+        CancellationToken ct)
+    {
+        var logger = loggerFactory.CreateLogger("PersonEndpoints.Review");
+        var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
+
+        if (review is null)
+            return Results.NotFound();
+
+        // Merge personB → personA
+        await mergeService.MergePersonsAsync(review.PersonAId, review.PersonBId, "steward_confirm", ct);
+
+        review.Status = "confirmed";
+        review.ReviewedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync(ct);
+
+        logger.LogInformation("Review {Id} confirmed: merged {PersonB} into {PersonA}",
+            reviewId, review.PersonBId, review.PersonAId);
+
+        return Results.Ok(new { merged = review.PersonBId, surviving = review.PersonAId });
+    }
+
+    private static async Task<IResult> HandleRejectReviewAsync(
+        Guid reviewId,
+        AppDbContext context,
+        ILoggerFactory loggerFactory,
+        CancellationToken ct)
+    {
+        var logger = loggerFactory.CreateLogger("PersonEndpoints.Review");
+        var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
+
+        if (review is null)
+            return Results.NotFound();
+
+        review.Status = "rejected";
+        review.ReviewedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync(ct);
+
+        logger.LogInformation("Review {Id} rejected: persons {PersonA} and {PersonB} remain separate",
+            reviewId, review.PersonAId, review.PersonBId);
+
+        return Results.Ok(new { personA = review.PersonAId, personB = review.PersonBId });
     }
 }

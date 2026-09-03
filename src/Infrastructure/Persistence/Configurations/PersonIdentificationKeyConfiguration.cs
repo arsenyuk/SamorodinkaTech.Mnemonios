@@ -24,9 +24,9 @@ public class PersonIdentificationKeyConfiguration : IEntityTypeConfiguration<Per
         builder.Property(k => k.OrganizationUnitKey).HasColumnName("organization_unit_key").HasMaxLength(100);
         builder.Property(k => k.CreatedAt).HasColumnName("created_at").IsRequired();
 
-        builder.HasIndex(k => new { k.KeyType, k.KeyValue })
+        builder.HasIndex(k => new { k.KeyType, k.KeyValue, k.MasterId })
             .IsUnique()
-            .HasDatabaseName("ux_person_identification_keys_type_value");
+            .HasDatabaseName("ux_person_identification_keys_type_value_person");
 
         builder.HasIndex(k => k.MasterId).HasDatabaseName("ix_person_identification_keys_person_id");
 

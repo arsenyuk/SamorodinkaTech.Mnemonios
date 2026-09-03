@@ -12,6 +12,8 @@ public static class SnilsValidator
 
     /// <summary>
     /// Validates SNILS format and checksum.
+    /// Проверка контрольного числа проводится только для номеров > 001-001-998.
+    /// Номера от 0 до 001-001-998 зарезервированы и не имеют валидной контрольной суммы.
     /// </summary>
     /// <param name="snils">SNILS string (11 digits, separators allowed).</param>
     /// <returns>True if valid, false otherwise.</returns>
@@ -23,6 +25,11 @@ public static class SnilsValidator
         var digits = ExtractDigits(snils);
         if (digits.Length != Length)
             return false;
+
+        // Номера 0 .. 001-001-998 (1001998) зарезервированы — контрольное число не проверяется
+        var firstNine = int.Parse(new string(digits[..9]));
+        if (firstNine <= 1_001_998)
+            return true;
 
         var checkSum = ComputeCheckSum(digits[..9]);
         var actualCheck = (digits[9] - '0') * 10 + (digits[10] - '0');
