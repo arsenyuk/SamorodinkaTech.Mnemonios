@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Mnemonios.Domain.DTOs;
 using Mnemonios.Domain.Interfaces;
 using Mnemonios.Domain.Validation;
+using Mnemonios.Infrastructure.Common.Exceptions;
 using Mnemonios.Infrastructure.Persistence;
 
 namespace Mnemonios.Api.Endpoints;
@@ -183,7 +184,7 @@ public static class PersonEndpoints
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting person {MasterId}", masterId);
-            throw;
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
         }
     }
 
@@ -238,30 +239,44 @@ public static class PersonEndpoints
         catch (Exception ex)
         {
             logger.LogError(ex, "Error adding identifier for person {MasterId}", masterId);
-            throw;
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
         }
     }
 
     private static IResult HandleValidateInnAsync(InnValidationRequest request)
     {
-        var isValid = InnValidator.Validate(request.Inn);
-
-        return Results.Ok(new ValidationResultDto
+        try
         {
-            IsValid = isValid,
-            Error = isValid ? null : "Некорректный формат или контрольная сумма ИНН."
-        });
+            var isValid = InnValidator.Validate(request.Inn);
+
+            return Results.Ok(new ValidationResultDto
+            {
+                IsValid = isValid,
+                Error = isValid ? null : "Некорректный формат или контрольная сумма ИНН."
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
+        }
     }
 
     private static IResult HandleValidateSnilsAsync(SnilsValidationRequest request)
     {
-        var isValid = SnilsValidator.Validate(request.Snils);
-
-        return Results.Ok(new ValidationResultDto
+        try
         {
-            IsValid = isValid,
-            Error = isValid ? null : "Некорректный формат или контрольная сумма СНИЛС."
-        });
+            var isValid = SnilsValidator.Validate(request.Snils);
+
+            return Results.Ok(new ValidationResultDto
+            {
+                IsValid = isValid,
+                Error = isValid ? null : "Некорректный формат или контрольная сумма СНИЛС."
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
+        }
     }
 
     private static async Task<IResult> HandleCessationAsync(
@@ -343,7 +358,7 @@ public static class PersonEndpoints
         catch (Exception ex)
         {
             logger.LogError(ex, "Error during reconciliation");
-            throw;
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
         }
     }
 
@@ -357,21 +372,28 @@ public static class PersonEndpoints
         AppDbContext context,
         CancellationToken ct)
     {
-        var pending = await context.PersonReviewQueues
-            .Where(r => r.Status == "pending")
-            .OrderBy(r => r.CreatedAt)
-            .Select(r => new ReviewQueueDto
-            {
-                Id = r.Id,
-                PersonAId = r.PersonAId,
-                PersonBId = r.PersonBId,
-                SharedKeyType = r.SharedKeyType,
-                ConflictKeyType = r.ConflictKeyType,
-                Status = r.Status
-            })
-            .ToListAsync(ct);
+        try
+        {
+            var pending = await context.PersonReviewQueues
+                .Where(r => r.Status == "pending")
+                .OrderBy(r => r.CreatedAt)
+                .Select(r => new ReviewQueueDto
+                {
+                    Id = r.Id,
+                    PersonAId = r.PersonAId,
+                    PersonBId = r.PersonBId,
+                    SharedKeyType = r.SharedKeyType,
+                    ConflictKeyType = r.ConflictKeyType,
+                    Status = r.Status
+                })
+                .ToListAsync(ct);
 
-        return Results.Ok(pending);
+            return Results.Ok(pending);
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
+        }
     }
 
     private static async Task<IResult> HandleConfirmReviewAsync(
@@ -382,22 +404,30 @@ public static class PersonEndpoints
         CancellationToken ct)
     {
         var logger = loggerFactory.CreateLogger("PersonEndpoints.Review");
-        var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
 
-        if (review is null)
-            return Results.NotFound();
+        try
+        {
+            var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
 
-        // Merge personB → personA
-        await mergeService.MergePersonsAsync(review.PersonAId, review.PersonBId, "steward_confirm", ct);
+            if (review is null)
+                return Results.NotFound();
 
-        review.Status = "confirmed";
-        review.ReviewedAt = DateTime.UtcNow;
-        await context.SaveChangesAsync(ct);
+            await mergeService.MergePersonsAsync(review.PersonAId, review.PersonBId, "steward_confirm", ct);
 
-        logger.LogInformation("Review {Id} confirmed: merged {PersonB} into {PersonA}",
-            reviewId, review.PersonBId, review.PersonAId);
+            review.Status = "confirmed";
+            review.ReviewedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync(ct);
 
-        return Results.Ok(new { merged = review.PersonBId, surviving = review.PersonAId });
+            logger.LogInformation("Review {Id} confirmed: merged {PersonB} into {PersonA}",
+                reviewId, review.PersonBId, review.PersonAId);
+
+            return Results.Ok(new { merged = review.PersonBId, surviving = review.PersonAId });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error confirming review {ReviewId}", reviewId);
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
+        }
     }
 
     private static async Task<IResult> HandleRejectReviewAsync(
@@ -407,18 +437,27 @@ public static class PersonEndpoints
         CancellationToken ct)
     {
         var logger = loggerFactory.CreateLogger("PersonEndpoints.Review");
-        var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
 
-        if (review is null)
-            return Results.NotFound();
+        try
+        {
+            var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
 
-        review.Status = "rejected";
-        review.ReviewedAt = DateTime.UtcNow;
-        await context.SaveChangesAsync(ct);
+            if (review is null)
+                return Results.NotFound();
 
-        logger.LogInformation("Review {Id} rejected: persons {PersonA} and {PersonB} remain separate",
-            reviewId, review.PersonAId, review.PersonBId);
+            review.Status = "rejected";
+            review.ReviewedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync(ct);
 
-        return Results.Ok(new { personA = review.PersonAId, personB = review.PersonBId });
+            logger.LogInformation("Review {Id} rejected: persons {PersonA} and {PersonB} remain separate",
+                reviewId, review.PersonAId, review.PersonBId);
+
+            return Results.Ok(new { personA = review.PersonAId, personB = review.PersonBId });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error rejecting review {ReviewId}", reviewId);
+            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
+        }
     }
 }

@@ -1,5 +1,7 @@
 using Mnemonios.Api.Endpoints;
 using Mnemonios.Domain.Interfaces;
+using Mnemonios.Infrastructure;
+using Mnemonios.Infrastructure.Middleware;
 using Mnemonios.Infrastructure.Persistence;
 using Mnemonios.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +31,9 @@ builder.Services.AddScoped<IPersonResolveService, PersonResolveService>();
 builder.Services.AddScoped<IPersonCessationService, PersonCessationService>();
 builder.Services.AddScoped<IPersonMergeService, PersonMergeService>();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IClientIpProvider, HttpContextIpProvider>();
+
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddEndpointsApiExplorer();
@@ -44,5 +49,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<ExceptionLoggingMiddleware>();
 app.MapPersonEndpoints();
 app.Run();
