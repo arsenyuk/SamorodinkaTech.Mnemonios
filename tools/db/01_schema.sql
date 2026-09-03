@@ -75,7 +75,6 @@ CREATE TABLE person_defects (
     defect_type     varchar(50) NOT NULL,
     defect_message  varchar(500) NOT NULL,
     field_name      varchar(100),
-    original_value  varchar(500),
     created_at      timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -120,10 +119,6 @@ CREATE TABLE ext_persons (
     source_system_id         varchar(100) NOT NULL,
     external_person_id       varchar(255) NOT NULL,
     external_person_type     varchar(255),
-    first_name               varchar(255) NOT NULL,
-    last_name                varchar(255) NOT NULL,
-    middle_name              varchar(255),
-    raw_evidence             jsonb,
     requested_person_id      uuid,
     processing_status        varchar(20) NOT NULL DEFAULT 'pending',
     created_at               timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -144,7 +139,6 @@ CREATE TABLE ext_person_defects (
     defect_type         varchar(50) NOT NULL,
     defect_message      varchar(500) NOT NULL,
     field_name          varchar(100),
-    original_value      varchar(500),
     created_at          timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 

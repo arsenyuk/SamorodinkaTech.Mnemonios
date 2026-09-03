@@ -22,12 +22,6 @@ public class ExtPersonConfiguration : IEntityTypeConfiguration<ExtPerson>
         builder.Property(e => e.ExternalPersonId).HasColumnName("external_person_id").HasMaxLength(255).IsRequired();
         builder.Property(e => e.ExternalPersonType).HasColumnName("external_person_type").HasMaxLength(255);
 
-        builder.Property(e => e.FirstName).HasColumnName("first_name").HasMaxLength(255).IsRequired();
-        builder.Property(e => e.LastName).HasColumnName("last_name").HasMaxLength(255).IsRequired();
-        builder.Property(e => e.MiddleName).HasColumnName("middle_name").HasMaxLength(255);
-
-        builder.Property(e => e.RawEvidence).HasColumnName("raw_evidence").HasColumnType("jsonb");
-
         builder.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(e => e.ProcessedAt).HasColumnName("processed_at");
 

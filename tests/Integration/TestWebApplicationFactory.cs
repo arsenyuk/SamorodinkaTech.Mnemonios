@@ -13,10 +13,11 @@ using Serilog.Events;
 namespace Mnemonios.IntegrationTests;
 
 /// <summary>
-/// WebApplicationFactory: очистка БД через TRUNCATE, изоляция логирования тестов.
+/// WebApplicationFactory: очистка БД через TRUNCATE (один раз за запуск), изоляция логирования тестов.
 /// </summary>
 public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private static int _initialized;
     private DbConnection? _connection;
     private bool _disposed;
 
@@ -62,7 +63,12 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
     {
         _connection = new NpgsqlConnection(GetConnectionString());
         await _connection.OpenAsync();
-        await ResetDatabaseAsync();
+
+        // TRUNCATE выполняется ОДИН РАЗ за весь запуск тестов
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+        {
+            await ResetDatabaseAsync();
+        }
     }
 
     public async Task DisposeAsync()

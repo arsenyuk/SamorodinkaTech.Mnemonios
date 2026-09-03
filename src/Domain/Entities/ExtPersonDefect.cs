@@ -1,7 +1,7 @@
 namespace Mnemonios.Domain.Entities;
 
 /// <summary>
-/// Сырые данные дефектов из входящего запроса идентификации (staging).
+/// Staging-запись дефектов из входящего запроса (без ПДн).
 /// </summary>
 public class ExtPersonDefect
 {
@@ -19,9 +19,6 @@ public class ExtPersonDefect
 
     /// <summary>Имя поля, вызвавшего дефект (опционально).</summary>
     public string? FieldName { get; set; }
-
-    /// <summary>Исходное значение дефектного поля (опционально).</summary>
-    public string? OriginalValue { get; set; }
 
     /// <summary>Дата создания записи.</summary>
     public DateTime CreatedAt { get; set; }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mnemonios.Domain.DTOs;
 using Mnemonios.Domain.Entities;
@@ -55,7 +54,7 @@ public class PersonResolveService : IPersonResolveService
 
         // --- Staging: create ext_persons record from raw incoming data ---
         var extPerson = CreateExtPersonEntity(request);
-        var extDefects = CreateExtDefectEntities(extPerson.Id, defects, request);
+        var extDefects = CreateExtDefectEntities(extPerson.Id, defects);
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
@@ -95,6 +94,41 @@ public class PersonResolveService : IPersonResolveService
     {
         var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
 
+        // 0. Проверить существующую внешнюю ссылку — если внешний ID уже привязан
+        //    к персоне, это та же самая персона (вне зависимости от составных ключей ФИО)
+        var existingExtId = await _context.PersonExternalIds
+            .FirstOrDefaultAsync(e =>
+                e.SourceSystemId == request.SourceSystemId &&
+                e.ExternalPersonId == request.ExternalPersonId, cancellationToken);
+
+        if (existingExtId is not null)
+        {
+            var matchedMasterId = existingExtId.MasterId;
+
+            await EnrichPersonAsync(matchedMasterId, request, cancellationToken);
+            await SaveNewKeysAsync(matchedMasterId, computedKeys, cancellationToken);
+            await LinkExternalIdAsync(matchedMasterId, request, extPerson.Id, cancellationToken);
+            await SaveDocumentAsync(matchedMasterId, request, computedKeys, cancellationToken);
+
+            if (defects.Count > 0)
+                await SaveDefectsAsync(matchedMasterId, defects, cancellationToken);
+
+            await _cessationService.CancelDeferredCessationAsync(
+                request.SourceSystemId, request.ExternalPersonId, cancellationToken);
+
+            var pendingCessation = await _repository.GetPendingDeferredCessationAsync(
+                request.SourceSystemId, request.ExternalPersonId, cancellationToken);
+
+            return new ResolveResponse
+            {
+                Status = PersonMatchStatus.Matched,
+                MasterId = matchedMasterId,
+                HasDefects = defects.Count > 0,
+                Defects = defects,
+                ScheduledDeletionDate = pendingCessation?.ScheduledDeletionDate
+            };
+        }
+
         // Все ключи для матчинга: proof + составные ФИО
         var allMatchingKeys = computedKeys.Where(k => k.KeyType is "inn" or "snils" or "dul" or "inn_fio" or "snils_fio" or "dul_fio").ToList();
         var matchingKeyValues = allMatchingKeys.Select(k => k.KeyValue);
@@ -109,7 +143,7 @@ public class PersonResolveService : IPersonResolveService
         }
 
         // 2. Для каждого кандидата посчитать M (совпадений), K (в мастере, не совпадают)
-        var candidateScores = new List<(Guid MasterId, int M, int K, List<KeyConflict> Conflicts)>();
+        var candidateScores = new List<(Guid MasterId, int M, int K, int D, List<KeyConflict> ScoringConflicts, List<KeyConflict> ReportConflicts, string BestMatchedProofKey)>();
 
         foreach (var masterId in candidateIds)
         {
@@ -117,17 +151,45 @@ public class PersonResolveService : IPersonResolveService
                 .Where(k => k.MasterId == masterId)
                 .ToListAsync(cancellationToken);
 
-            int m = 0, k = 0;
-            var conflicts = new List<KeyConflict>();
+            int m = 0, k = 0, d = 0;
+            var scoringConflicts = new List<KeyConflict>();
+            var reportConflicts = new List<KeyConflict>();
 
-            foreach (var requestKey in allMatchingKeys)
+            // Сначала оценить proof-ключи (inn, snils, dul), затем составные (inn_fio, ...)
+            var proofKeys = allMatchingKeys.Where(k => k.KeyType is "inn" or "snils" or "dul").ToList();
+            var compositeKeys = allMatchingKeys.Where(k => k.KeyType is "inn_fio" or "snils_fio" or "dul_fio").ToList();
+
+            // Набор proof-ключей, которые уже совпали с мастером
+            var matchedProofTypes = new HashSet<string>();
+
+            foreach (var requestKey in proofKeys)
             {
                 var existing = existingKeys.FirstOrDefault(e => e.KeyType == requestKey.KeyType);
-                if (existing is null)
+                if (existing is null) continue;
+
+                if (existing.KeyValue == requestKey.KeyValue)
                 {
-                    // Ключа нет в мастере — новые данные, OK
-                    continue;
+                    m++;
+                    d += DeterministicKeyWeight(requestKey.KeyType);
+                    matchedProofTypes.Add(requestKey.KeyType);
                 }
+                else
+                {
+                    k++;
+                    scoringConflicts.Add(new KeyConflict(requestKey.KeyType));
+                    reportConflicts.Add(new KeyConflict(requestKey.KeyType));
+                }
+            }
+
+            // Составные ключи: scoring — конфликт только если proof-ключ НЕ совпал;
+            // reporting — показываем все расхождения для информации стюарда
+            foreach (var requestKey in compositeKeys)
+            {
+                var existing = existingKeys.FirstOrDefault(e => e.KeyType == requestKey.KeyType);
+                if (existing is null) continue;
+
+                // Соответствие proof-ключа: inn_fio → inn, snils_fio → snils, dul_fio → dul
+                var baseProofType = requestKey.KeyType.Replace("_fio", "");
 
                 if (existing.KeyValue == requestKey.KeyValue)
                 {
@@ -135,26 +197,59 @@ public class PersonResolveService : IPersonResolveService
                 }
                 else
                 {
-                    k++;
-                    conflicts.Add(new KeyConflict(requestKey.KeyType));
+                    reportConflicts.Add(new KeyConflict(requestKey.KeyType));
+
+                    if (!matchedProofTypes.Contains(baseProofType))
+                    {
+                        // Scoring: конфликт составного ключа засчитывается только если proof-ключ не совпал
+                        k++;
+                        scoringConflicts.Add(new KeyConflict(requestKey.KeyType));
+                    }
+                    // Если proof-ключ совпал — изменение ФИО ожидаемо, для scoring не засчитываем
                 }
             }
 
-            candidateScores.Add((masterId, m, k, conflicts));
+            // Лучший совпавший proof-ключ (приоритет: ИНН > СНИЛС > ДУЛ)
+            var bestMatched = matchedProofTypes
+                .OrderByDescending(t => DeterministicKeyWeight(t))
+                .FirstOrDefault() ?? string.Empty;
+
+            candidateScores.Add((masterId, m, k, d, scoringConflicts, reportConflicts, bestMatched));
         }
 
-        // 3. Выбрать кандидата с максимальным M, при равенстве — минимальный K
+        // 3. Выбрать кандидата: min K → max D → max M
         var best = candidateScores
-            .OrderByDescending(c => c.M)
-            .ThenBy(c => c.K)
+            .OrderBy(c => c.K)
+            .ThenByDescending(c => c.D)
+            .ThenByDescending(c => c.M)
             .First();
 
         // 4. Проверить результат
         if (best.K > 0)
         {
-            // Есть ключи в мастере которые не совпадают → Ambiguous
-            return await HandleAmbiguousAsync(
-                best.MasterId, best.Conflicts, request, extPerson, defects, computedKeys, cancellationToken);
+            // Лучший кандидат → Ambiguous (создаёт нового person + запись в очереди)
+            var result = await HandleAmbiguousAsync(
+                best.MasterId, best.BestMatchedProofKey, best.ReportConflicts, request, extPerson, defects, computedKeys, cancellationToken);
+
+            // Остальные кандидаты с K > 0 → дополнительные записи в очереди
+            var newMasterId = result.MasterId!.Value;
+            foreach (var other in candidateScores.Where(c => c.MasterId != best.MasterId && c.K > 0))
+            {
+                var review = new PersonReviewQueue
+                {
+                    Id = Guid.NewGuid(),
+                    PersonAId = other.MasterId,
+                    PersonBId = newMasterId,
+                    SharedKeyType = other.BestMatchedProofKey,
+                    ConflictKeyType = string.Join(",", other.ReportConflicts.Select(c => c.KeyType)),
+                    Status = "pending",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.PersonReviewQueues.Add(review);
+            }
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return result;
         }
 
         if (best.M == 0)
@@ -178,7 +273,7 @@ public class PersonResolveService : IPersonResolveService
 
         if (defects.Count > 0)
         {
-            await SaveDefectsAsync(masterIdResult, defects, request, cancellationToken);
+            await SaveDefectsAsync(masterIdResult, defects, cancellationToken);
         }
 
         await _cessationService.CancelDeferredCessationAsync(
@@ -215,7 +310,7 @@ public class PersonResolveService : IPersonResolveService
 
         if (defects.Count > 0)
         {
-            await SaveDefectsAsync(created.MasterId, defects, request, cancellationToken);
+            await SaveDefectsAsync(created.MasterId, defects, cancellationToken);
         }
 
         await _cessationService.CancelDeferredCessationAsync(
@@ -248,7 +343,6 @@ public class PersonResolveService : IPersonResolveService
     private async Task SaveDefectsAsync(
         Guid masterId,
         IReadOnlyList<DefectInfo> defects,
-        ResolveRequest request,
         CancellationToken cancellationToken)
     {
         var entityDefects = defects.Select(d => new PersonDefect
@@ -258,50 +352,27 @@ public class PersonResolveService : IPersonResolveService
             DefectType = d.DefectType,
             DefectMessage = d.DefectMessage,
             FieldName = d.FieldName,
-            OriginalValue = GetOriginalValue(d, request),
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
         await _repository.SaveDefectsAsync(entityDefects, cancellationToken);
     }
 
-    private static string? GetOriginalValue(DefectInfo defect, ResolveRequest request)
-    {
-        var evidence = request.Evidence;
-        return defect.DefectType switch
-        {
-            "invalid_inn" => evidence?.Inn,
-            "invalid_snils" => evidence?.Snils,
-            "dul_incomplete" when defect.FieldName == "dulNumber" => evidence?.DulSeries,
-            "dul_incomplete" when defect.FieldName == "dulSeries" => evidence?.DulNumber,
-            _ => null
-        };
-    }
-
     private static ExtPerson CreateExtPersonEntity(ResolveRequest request)
     {
-        var rawEvidence = request.Evidence is not null
-            ? JsonSerializer.Serialize(request.Evidence)
-            : null;
-
         return new ExtPerson
         {
             Id = Guid.NewGuid(),
             SourceSystemId = request.SourceSystemId,
             ExternalPersonId = request.ExternalPersonId,
             ExternalPersonType = request.ExternalPersonType,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            MiddleName = request.MiddleName,
-            RawEvidence = rawEvidence,
             CreatedAt = DateTime.UtcNow
         };
     }
 
     private static IReadOnlyList<ExtPersonDefect> CreateExtDefectEntities(
         Guid extPersonId,
-        IReadOnlyList<DefectInfo> defects,
-        ResolveRequest request)
+        IReadOnlyList<DefectInfo> defects)
     {
         return defects.Select(d => new ExtPersonDefect
         {
@@ -310,7 +381,6 @@ public class PersonResolveService : IPersonResolveService
             DefectType = d.DefectType,
             DefectMessage = d.DefectMessage,
             FieldName = d.FieldName,
-            OriginalValue = GetOriginalValue(d, request),
             CreatedAt = DateTime.UtcNow
         }).ToList();
     }
@@ -446,6 +516,7 @@ public class PersonResolveService : IPersonResolveService
 
     private async Task<ResolveResponse> HandleAmbiguousAsync(
         Guid existingMasterId,
+        string matchedKeyType,
         List<KeyConflict> conflicts,
         ResolveRequest request,
         ExtPerson extPerson,
@@ -487,20 +558,19 @@ public class PersonResolveService : IPersonResolveService
 
         if (defects.Count > 0)
         {
-            await SaveDefectsAsync(newMasterId, defects, request, cancellationToken);
+            await SaveDefectsAsync(newMasterId, defects, cancellationToken);
         }
 
         await _cessationService.CancelDeferredCessationAsync(
             request.SourceSystemId, request.ExternalPersonId, cancellationToken);
 
         // Записать в очередь на обработку стюардом
-        var sharedKey = computedKeys.FirstOrDefault(k => k.KeyType is "inn" or "snils" or "dul");
         var review = new PersonReviewQueue
         {
             Id = Guid.NewGuid(),
             PersonAId = existingMasterId,
             PersonBId = newMasterId,
-            SharedKeyType = sharedKey?.KeyType ?? string.Empty,
+            SharedKeyType = matchedKeyType,
             ConflictKeyType = string.Join(",", conflicts.Select(c => c.KeyType)),
             Status = "pending",
             CreatedAt = DateTime.UtcNow
@@ -517,4 +587,16 @@ public class PersonResolveService : IPersonResolveService
             KeyConflicts = conflicts
         };
     }
+
+    /// <summary>
+    /// Вес детерминированного ключа для tie-breaking при равенстве M и K.
+    /// ИНН (уникален для ФЛ) > СНИЛС > ДУЛ.
+    /// </summary>
+    private static int DeterministicKeyWeight(string keyType) => keyType switch
+    {
+        "inn" => 3,
+        "snils" => 2,
+        "dul" => 1,
+        _ => 0
+    };
 }

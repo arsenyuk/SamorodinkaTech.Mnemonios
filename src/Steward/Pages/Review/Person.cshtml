@@ -1,0 +1,163 @@
+@page "{masterId:guid}"
+@model PersonModel
+@{
+    ViewData["Title"] = "Мастер-запись";
+    var p = Model.Person!;
+}
+
+<div class="d-flex align-items-center mb-4">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+    <h1 class="mb-0">Персона <code style="font-size:.7em">@p.MasterId</code></h1>
+</div>
+
+<!-- Мастер-данные -->
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-person-badge"></i> Мастер-данные</div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">MasterId</dt>
+            <dd class="col-sm-9"><code>@p.MasterId</code></dd>
+            <dt class="col-sm-3">Создано</dt>
+            <dd class="col-sm-9">@ToLocalString(p.CreatedAt)</dd>
+            <dt class="col-sm-3">Обновлено</dt>
+            <dd class="col-sm-9">@ToLocalString(p.UpdatedAt)</dd>
+        </dl>
+    </div>
+</div>
+
+<!-- Внешние ключи из ИС -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-link-45deg"></i> Внешние ключи из ИС
+        <span class="badge bg-secondary" style="font-size:.75em">@p.ExternalIds.Count</span>
+    </div>
+    <div class="card-body">
+        @if (!p.ExternalIds.Any())
+        {
+            <span class="text-muted">Нет внешних ключей</span>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Система</th><th>Внешний ID</th><th>Тип</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in p.ExternalIds)
+                        {
+                            <tr>
+                                <td><span class="badge bg-primary">@e.SourceSystemId</span></td>
+                                <td><code>@e.ExternalPersonId</code></td>
+                                <td>@(e.ExternalPersonType ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Ключи идентификации -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-key"></i> Ключи идентификации
+        <span class="badge bg-secondary" style="font-size:.75em">@p.IdentificationKeys.Count</span>
+    </div>
+    <div class="card-body">
+        @if (!p.IdentificationKeys.Any())
+        {
+            <span class="text-muted">Нет ключей</span>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Тип</th><th>Хеш (превью)</th><th>Юр. лицо</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var k in p.IdentificationKeys)
+                        {
+                            <tr>
+                                <td><code>@k.KeyType</code></td>
+                                <td><code>@k.KeyValuePreview</code></td>
+                                <td>@(k.OrganizationUnitKey ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Документы ДУЛ -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-file-earmark-text"></i> Документы ДУЛ
+        <span class="badge bg-secondary" style="font-size:.75em">@p.Documents.Count</span>
+    </div>
+    <div class="card-body">
+        @if (!p.Documents.Any())
+        {
+            <span class="text-muted">Нет документов</span>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Тип</th><th>Хеш (превью)</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in p.Documents)
+                        {
+                            <tr>
+                                <td><code>@d.DocumentType</code></td>
+                                <td><code>@d.DocumentHashPreview</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Дефекты -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-exclamation-triangle"></i> Дефекты
+        <span class="badge bg-secondary" style="font-size:.75em">@p.Defects.Count</span>
+    </div>
+    <div class="card-body">
+        @if (!p.Defects.Any())
+        {
+            <span class="text-muted">Нет дефектов</span>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Тип</th><th>Описание</th><th>Поле</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var df in p.Defects)
+                        {
+                            <tr>
+                                <td><code>@df.DefectType</code></td>
+                                <td>@df.DefectMessage</td>
+                                <td>@(df.FieldName ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

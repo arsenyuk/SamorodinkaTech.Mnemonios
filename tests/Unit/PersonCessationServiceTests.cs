@@ -65,8 +65,6 @@ public class PersonCessationServiceTests
             MasterId = personId,
             SourceSystemId = "CRM",
             ExternalPersonId = "ext-001",
-            FirstName = "Test",
-            LastName = "User",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -151,8 +149,6 @@ public class PersonCessationServiceTests
             MasterId = personId,
             SourceSystemId = "CRM",
             ExternalPersonId = "ext-001",
-            FirstName = "Test",
-            LastName = "User",
             CreatedAt = DateTime.UtcNow
         };
 

@@ -21,7 +21,6 @@ public class PersonDefectConfiguration : IEntityTypeConfiguration<PersonDefect>
         builder.Property(d => d.DefectType).HasColumnName("defect_type").HasMaxLength(50).IsRequired();
         builder.Property(d => d.DefectMessage).HasColumnName("defect_message").HasMaxLength(500).IsRequired();
         builder.Property(d => d.FieldName).HasColumnName("field_name").HasMaxLength(100);
-        builder.Property(d => d.OriginalValue).HasColumnName("original_value").HasMaxLength(500);
         builder.Property(d => d.CreatedAt).HasColumnName("created_at").IsRequired();
 
         builder.HasIndex(d => d.MasterId).HasDatabaseName("ix_person_defects_person_id");

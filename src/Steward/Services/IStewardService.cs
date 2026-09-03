@@ -21,4 +21,16 @@ public interface IStewardService
     /// </summary>
     /// <returns>true, если запись найдена и обработана; false, если запись не найдена.</returns>
     Task<bool> RejectReviewAsync(Guid reviewId, CancellationToken ct);
+
+    /// <summary>
+    /// Получить детальную информацию о конфликте для просмотра.
+    /// </summary>
+    /// <returns>Детали конфликта или null, если запись не найдена.</returns>
+    Task<ConflictDetailDto?> GetConflictDetailAsync(Guid reviewId, CancellationToken ct);
+
+    /// <summary>
+    /// Получить данные мастер-записи для просмотра.
+    /// </summary>
+    /// <returns>Данные мастер-записи или null, если запись не найдена.</returns>
+    Task<PersonData?> GetPersonDataAsync(Guid masterId, CancellationToken ct);
 }

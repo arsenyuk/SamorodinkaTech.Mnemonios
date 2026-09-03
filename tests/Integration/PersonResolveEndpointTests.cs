@@ -236,13 +236,14 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     public async Task Resolve_ConflictingKeys_AutoMergesWhenInnResolves()
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
+        var inn = GenerateValidInn(uid);
         var snils = GenerateValidSnils(uid);
 
         var person1 = await PostResolve(new ResolveRequest
         {
             LastName = "Вешняков",
             FirstName = "Тарас",
-            Evidence = new Evidence { Inn = "7707083893" },
+            Evidence = new Evidence { Inn = inn },
             SourceSystemId = "CRM",
             ExternalPersonId = $"ext-vesh1-{uid}"
         });
@@ -262,7 +263,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "ВЕШНЯКОВ",
             FirstName = "ГЛЕБ",
-            Evidence = new Evidence { Inn = "7707083893", Snils = snils },
+            Evidence = new Evidence { Inn = inn, Snils = snils },
             SourceSystemId = "HR",
             ExternalPersonId = $"ext-vesh3-{uid}"
         };
@@ -1117,13 +1118,17 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
     {
         var uid = Guid.NewGuid().ToString("N")[..8];
         var extId = $"ext-emp-{uid}";
+        var dulSeries = GenerateForeignDulSeries(uid);
+        var dulNumber = GenerateForeignDulNumber(uid);
+        var inn = GenerateValidInn(uid);
+        var snils = GenerateValidSnils(uid);
 
         // Шаг 1: Сотрудник с паспортом иностранного гражданина (без ИНН и СНИЛС)
         var step1 = await PostResolve(new ResolveRequest
         {
             LastName = "Петров",
             FirstName = "Иван",
-            Evidence = new Evidence { DulType = "10", DulSeries = "МР", DulNumber = "123456" },
+            Evidence = new Evidence { DulType = "10", DulSeries = dulSeries, DulNumber = dulNumber },
             SourceSystemId = "HR",
             ExternalPersonId = extId
         });
@@ -1142,7 +1147,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Петров",
             FirstName = "Иван",
-            Evidence = new Evidence { DulType = "10", DulSeries = "МР", DulNumber = "123456", Inn = "123456789012" },
+            Evidence = new Evidence { DulType = "10", DulSeries = dulSeries, DulNumber = dulNumber, Inn = inn },
             SourceSystemId = "HR",
             ExternalPersonId = extId
         });
@@ -1160,7 +1165,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         {
             LastName = "Петров",
             FirstName = "Иван",
-            Evidence = new Evidence { DulType = "10", DulSeries = "МР", DulNumber = "123456", Inn = "123456789012", Snils = "12345678901" },
+            Evidence = new Evidence { DulType = "10", DulSeries = dulSeries, DulNumber = dulNumber, Inn = inn, Snils = snils },
             SourceSystemId = "HR",
             ExternalPersonId = extId
         });
@@ -1434,6 +1439,110 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         if (check == 100) check = 0;
 
         return string.Concat(baseDigits.Select(d => d.ToString())) + check / 10 + check % 10;
+    }
+
+    /// <summary>
+    /// Генерирует серию паспорта иностранного гражданина (2 буквы + 2 цифры, формат "XX XX").
+    /// </summary>
+    private static string GenerateForeignDulSeries(string uid)
+    {
+        var hex = uid.Replace("-", "").ToLowerInvariant();
+        var letters = hex.Select(c => (char)('А' + (c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10) % 32)).Take(2).ToArray();
+        var digits = hex.Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10).Select(d => d % 10).ToArray();
+        return $"{letters[0]}{letters[1]} {digits[0]}{digits[1]}";
+    }
+
+    /// <summary>
+    /// Генерирует номер паспорта иностранного гражданина (6 цифр).
+    /// </summary>
+    private static string GenerateForeignDulNumber(string uid)
+    {
+        var hex = uid.Replace("-", "").ToLowerInvariant();
+        var digits = hex.Select(c => c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10).Select(d => d % 10).ToArray();
+        return string.Concat(digits.Take(6).Select(d => d.ToString()));
+    }
+
+    // =========================================================================
+    // 33. Третий запрос конфликтует с двумя существующими персонами
+    // =========================================================================
+
+    [Fact]
+    public async Task Resolve_ThirdRecord_ConflictsWithTwoMasters()
+    {
+        var uid = Guid.NewGuid().ToString("N")[..8];
+        var inn = GenerateValidInn(uid);
+        var snils = GenerateValidSnils(uid);
+
+        // Шаг 1: person A — ИНН + ДУЛ паспорт (тип 10)
+        var step1 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Волков",
+            FirstName = "Денис",
+            Evidence = new Evidence
+            {
+                Inn = inn,
+                DulType = "10",
+                DulSeries = GenerateForeignDulSeries(uid),
+                DulNumber = GenerateForeignDulNumber(uid)
+            },
+            SourceSystemId = "HR",
+            ExternalPersonId = $"ext-hr-{uid}"
+        });
+
+        step1.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var personA = step1.MasterId!.Value;
+
+        // Шаг 2: person B — СНИЛС + другой ДУЛ паспорт
+        var step2 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Волков",
+            FirstName = "Денис",
+            Evidence = new Evidence
+            {
+                Snils = snils,
+                DulType = "10",
+                DulSeries = GenerateForeignDulSeries($"b{uid}"),
+                DulNumber = GenerateForeignDulNumber($"b{uid}")
+            },
+            SourceSystemId = "ERP",
+            ExternalPersonId = $"ext-erp-{uid}"
+        });
+
+        step2.Status.Should().Be(PersonMatchStatus.Unmatched);
+        var personB = step2.MasterId!.Value;
+        personB.Should().NotBe(personA, "ДУЛ разный → разные персоны");
+
+        // Шаг 3: ИНН₁ + СНИЛС₁ + третий ДУЛ → конфликт с A (по ИНН) и B (по СНИЛС)
+        var step3 = await PostResolve(new ResolveRequest
+        {
+            LastName = "Волков",
+            FirstName = "Денис",
+            Evidence = new Evidence
+            {
+                Inn = inn,
+                Snils = snils,
+                DulType = "10",
+                DulSeries = GenerateForeignDulSeries($"c{uid}"),
+                DulNumber = GenerateForeignDulNumber($"c{uid}")
+            },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-crm-{uid}"
+        });
+
+        // Конфликт: система выбрала A (ИНН > СНИЛС), ДУЛ не совпал → Ambiguous
+        step3.Status.Should().Be(PersonMatchStatus.Ambiguous);
+        step3.MasterId.Should().NotBeNull();
+        step3.KeyConflicts.Should().Contain(c => c.KeyType == "dul");
+
+        // Проверить, что person A и person B существуют
+        var getA = await GetPerson(personA);
+        getA.Should().NotBeNull();
+        var getB = await GetPerson(personB);
+        getB.Should().NotBeNull();
+
+        // Проверить очередь: запись связывает personA с новым person
+        var queueResponse = await _client.GetAsync("/persons/review");
+        queueResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     private async Task<ResolveResponse> PostResolve(ResolveRequest request)

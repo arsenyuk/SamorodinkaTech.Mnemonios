@@ -1,0 +1,207 @@
+@page "{reviewId:guid}"
+@model DetailModel
+@{
+    ViewData["Title"] = "Детали конфликта";
+    var d = Model.Detail!;
+}
+
+<div class="d-flex align-items-center mb-4">
+    <a href="/" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i> К очереди
+    </a>
+    <h1 class="mb-0">Конфликт <code style="font-size:.7em">@d.Review.Id.ToString()[..8]</code></h1>
+</div>
+
+<!-- Инфо-карточка -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Информация из очереди
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Совпавший ключ</dt>
+                    <dd class="col-sm-8"><span class="badge bg-primary badge-key">@d.Review.SharedKeyType</span></dd>
+                    <dt class="col-sm-4">Конфликт</dt>
+                    <dd class="col-sm-8">
+                        @foreach (var kt in d.Review.ConflictKeyType.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            <span class="badge bg-danger badge-key me-1">@kt</span>
+                        }
+                    </dd>
+                    <dt class="col-sm-4">Создано</dt>
+                    <dd class="col-sm-8">@ToLocalString(d.Review.CreatedAt)</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Сравнение ключей -->
+<h2 class="section-header"><i class="bi bi-key"></i> Сравнение ключей идентификации</h2>
+<div class="table-responsive mb-4">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th style="width:140px">Тип ключа</th>
+                <th>Персона A</th>
+                <th>Персона B</th>
+                <th style="width:130px">Статус</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var k in d.KeyComparisons)
+            {
+                var (rowClass, icon, statusLabel, iconClass) = k.Status switch
+                {
+                    "match" => ("row-match", "bi-check-circle-fill", "Совпадает", "status-match"),
+                    "conflict" => ("row-conflict", "bi-x-circle-fill", "Конфликт", "status-conflict"),
+                    "only_a" => ("row-partial", "bi-dash-circle", "Только A", "status-partial"),
+                    "only_b" => ("row-partial", "bi-dash-circle", "Только B", "status-partial"),
+                    _ => ("", "bi-question-circle", k.Status, "")
+                };
+                <tr class="@rowClass">
+                    <td><code>@k.KeyType</code></td>
+                    <td><code>@(k.KeyValueA ?? "—")</code></td>
+                    <td><code>@(k.KeyValueB ?? "—")</code></td>
+                    <td>
+                        <i class="bi @icon @iconClass status-icon"></i>
+                        @statusLabel
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Две колонки: Персона A и Персона B -->
+<h2 class="section-header"><i class="bi bi-people"></i> Данные персон</h2>
+<div class="row">
+    @foreach (var (person, label, color) in new[] { (d.PersonA, "A", "primary"), (d.PersonB, "B", "danger") })
+    {
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="badge bg-@color me-2" style="font-size:.9em">Персона @label</span>
+                        <code style="font-size:.8em">@person.MasterId</code>
+                    </div>
+                    <a asp-page="/Review/Person" asp-route-masterId="@person.MasterId"
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-eye"></i> Подробнее
+                    </a>
+                </div>
+                <div class="card-body">
+                    <!-- Мастер-данные -->
+                    <h6 class="text-muted mb-2"><i class="bi bi-person-badge"></i> Мастер-данные</h6>
+                    <dl class="row mb-3" style="font-size:.9em">
+                        <dt class="col-sm-4">Создано</dt>
+                        <dd class="col-sm-8">@ToLocalString(person.CreatedAt)</dd>
+                        <dt class="col-sm-4">Обновлено</dt>
+                        <dd class="col-sm-8">@ToLocalString(person.UpdatedAt)</dd>
+                    </dl>
+
+                    <!-- Внешние ключи из ИС -->
+                    <h6 class="text-muted mb-2">
+                        <i class="bi bi-link-45deg"></i> Внешние ключи из ИС
+                        <span class="badge bg-secondary" style="font-size:.75em">@person.ExternalIds.Count</span>
+                    </h6>
+                    @if (!person.ExternalIds.Any())
+                    {
+                        <p class="text-muted" style="font-size:.9em">Нет внешних ключей</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-3" style="font-size:.85em">
+                            <thead>
+                                <tr><th>Система</th><th>Внешний ID</th><th>Тип</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in person.ExternalIds)
+                                {
+                                    <tr>
+                                        <td><span class="badge bg-secondary">@e.SourceSystemId</span></td>
+                                        <td><code>@e.ExternalPersonId</code></td>
+                                        <td>@(e.ExternalPersonType ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <!-- Ключи идентификации -->
+                    <h6 class="text-muted mb-2">
+                        <i class="bi bi-key"></i> Ключи идентификации
+                        <span class="badge bg-secondary" style="font-size:.75em">@person.IdentificationKeys.Count</span>
+                    </h6>
+                    @if (!person.IdentificationKeys.Any())
+                    {
+                        <p class="text-muted" style="font-size:.9em">Нет ключей</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-3" style="font-size:.85em">
+                            <thead>
+                                <tr><th>Тип</th><th>Хеш (превью)</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var k in person.IdentificationKeys)
+                                {
+                                    <tr>
+                                        <td><code>@k.KeyType</code></td>
+                                        <td><code>@k.KeyValuePreview</code></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <!-- Дефекты -->
+                    <h6 class="text-muted mb-2">
+                        <i class="bi bi-exclamation-triangle"></i> Дефекты
+                        <span class="badge bg-secondary" style="font-size:.75em">@person.Defects.Count</span>
+                    </h6>
+                    @if (!person.Defects.Any())
+                    {
+                        <p class="text-muted" style="font-size:.9em">Нет дефектов</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-3" style="font-size:.85em">
+                            <thead>
+                                <tr><th>Тип</th><th>Описание</th><th>Поле</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var df in person.Defects)
+                                {
+                                    <tr>
+                                        <td><code>@df.DefectType</code></td>
+                                        <td>@df.DefectMessage</td>
+                                        <td>@(df.FieldName ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Действия -->
+<div class="d-flex gap-2 mb-4 mt-3">
+    <form method="post" asp-page="/Review/Confirm">
+        <input type="hidden" name="reviewId" value="@d.Review.Id" />
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-lg"></i> Подтвердить слияние (B → A)
+        </button>
+    </form>
+    <form method="post" asp-page="/Review/Reject">
+        <input type="hidden" name="reviewId" value="@d.Review.Id" />
+        <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-lg"></i> Отклонить
+        </button>
+    </form>
+</div>

@@ -1,7 +1,7 @@
 namespace Mnemonios.Domain.Entities;
 
 /// <summary>
-/// Дефект данных персоны, обнаруженный при идентификации.
+/// Дефект данных персоны, обнаруженный при идентификации (без ПДн).
 /// </summary>
 public class PersonDefect
 {
@@ -19,9 +19,6 @@ public class PersonDefect
 
     /// <summary>Имя поля, вызвавшего дефект (опционально).</summary>
     public string? FieldName { get; set; }
-
-    /// <summary>Исходное отклонённое значение (опционально).</summary>
-    public string? OriginalValue { get; set; }
 
     /// <summary>Дата создания записи.</summary>
     public DateTime CreatedAt { get; set; }

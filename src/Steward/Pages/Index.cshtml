@@ -4,48 +4,75 @@
     ViewData["Title"] = "Очередь стюарда";
 }
 
-<h1>Очередь на обработку</h1>
+<h1 class="mb-4">Очередь на обработку</h1>
 
 @if (!Model.PendingReviews.Any())
 {
-    <p>Нет записей на обработку.</p>
+    <div class="alert alert-info d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        Нет записей на обработку.
+    </div>
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Person A</th>
-                <th>Person B</th>
-                <th>Совпавший ключ</th>
-                <th>Конфликт</th>
-                <th>Создано</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var review in Model.PendingReviews)
-            {
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@review.Id</td>
-                    <td>@review.PersonAId</td>
-                    <td>@review.PersonBId</td>
-                    <td>@review.SharedKeyType</td>
-                    <td>@review.ConflictKeyType</td>
-                    <td>@review.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
-                    <td>
-                        <form method="post" asp-page="/Review/Confirm" style="display:inline">
-                            <input type="hidden" name="reviewId" value="@review.Id" />
-                            <button type="submit" class="btn btn-success btn-sm">Подтвердить</button>
-                        </form>
-                        <form method="post" asp-page="/Review/Reject" style="display:inline">
-                            <input type="hidden" name="reviewId" value="@review.Id" />
-                            <button type="submit" class="btn btn-danger btn-sm">Отклонить</button>
-                        </form>
-                    </td>
+                    <th class="col-id">ID</th>
+                    <th class="col-person">Персона A</th>
+                    <th class="col-person">Персона B</th>
+                    <th>Совпавший ключ</th>
+                    <th>Конфликт</th>
+                    <th class="col-date">Создано</th>
+                    <th class="col-actions"></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var review in Model.PendingReviews)
+                {
+                    <tr>
+                        <td><code>@review.Id.ToString()[..8]</code></td>
+                        <td>
+                            <a asp-page="/Review/Person" asp-route-masterId="@review.PersonAId" class="text-decoration-none">
+                                <code>@review.PersonAId.ToString()[..8]</code>
+                            </a>
+                        </td>
+                        <td>
+                            <a asp-page="/Review/Person" asp-route-masterId="@review.PersonBId" class="text-decoration-none">
+                                <code>@review.PersonBId.ToString()[..8]</code>
+                            </a>
+                        </td>
+                        <td><span class="badge bg-primary badge-key">@review.SharedKeyType</span></td>
+                        <td>
+                            @foreach (var kt in review.ConflictKeyType.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                <span class="badge bg-danger badge-key me-1">@kt</span>
+                            }
+                        </td>
+                        <td>@ToLocalString(review.CreatedAt, "dd.MM.yyyy HH:mm")</td>
+                        <td class="col-actions">
+                            <a asp-page="/Review/Detail" asp-route-reviewId="@review.Id"
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> Подробнее
+                            </a>
+                            <form method="post" asp-page="/Review/Confirm" style="display:inline">
+                                <input type="hidden" name="reviewId" value="@review.Id" />
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                            <form method="post" asp-page="/Review/Reject" style="display:inline">
+                                <input type="hidden" name="reviewId" value="@review.Id" />
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted mt-2" style="font-size:.85em">Всего записей: @Model.PendingReviews.Count</p>
 }

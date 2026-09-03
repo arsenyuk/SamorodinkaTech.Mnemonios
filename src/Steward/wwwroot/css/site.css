@@ -1,0 +1,138 @@
+/* ===== Палитра ===== */
+:root {
+    --color-primary: #1a1a2e;
+    --color-accent: #e94560;
+    --color-surface: #ffffff;
+    --color-bg: #f4f6f9;
+    --color-text: #212529;
+    --color-muted: #6c757d;
+    --color-border: #dee2e6;
+    --color-match: #d1e7dd;
+    --color-conflict: #f8d7da;
+    --color-partial: #fff3cd;
+}
+
+/* ===== База ===== */
+body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ===== Navbar ===== */
+.navbar {
+    background: var(--color-primary) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.navbar-brand {
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+
+/* ===== Таблицы ===== */
+.table {
+    --bs-table-hover-bg: rgba(26,26,46,.04);
+}
+.table thead th {
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 500;
+    font-size: .875rem;
+    white-space: nowrap;
+    border-bottom: none;
+}
+.table tbody tr {
+    transition: background .15s;
+}
+.table tbody tr:hover {
+    background: rgba(26,26,46,.03);
+}
+.table td, .table th {
+    vertical-align: middle;
+}
+
+/* Цветовые строки сравнения ключей */
+.row-match    { background: var(--color-match) !important; }
+.row-conflict { background: var(--color-conflict) !important; }
+.row-partial  { background: var(--color-partial) !important; }
+
+/* ===== Карточки ===== */
+.card {
+    border: 1px solid var(--color-border);
+    border-radius: .5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.card-header {
+    background: #f8f9fa;
+    font-weight: 600;
+    font-size: .9rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* ===== Код-блоки ===== */
+code {
+    font-size: .85em;
+    padding: .15em .35em;
+    border-radius: .25rem;
+    background: #f0f0f4;
+}
+pre {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border-radius: .35rem;
+    padding: .75rem;
+    font-size: .8rem;
+    overflow-x: auto;
+}
+
+/* ===== Бейджи ключей ===== */
+.badge-key {
+    font-family: monospace;
+    font-size: .8rem;
+    font-weight: 500;
+    padding: .3em .6em;
+}
+
+/* ===== Кнопки ===== */
+.btn {
+    border-radius: .35rem;
+    font-weight: 500;
+}
+form[d-inline] + form[d-inline],
+.btn + form,
+form + .btn,
+form + form {
+    margin-left: .35rem;
+}
+
+/* ===== Статус-индикаторы в таблице ключей ===== */
+.status-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+.status-match    { color: #198754; }
+.status-conflict { color: #dc3545; }
+.status-partial  { color: #ffc107; }
+
+/* ===== Хедер-колонка с мусориной ===== */
+.col-id { width: 90px; }
+.col-person { width: 140px; }
+.col-key { width: 110px; }
+.col-date { width: 120px; }
+.col-actions { white-space: nowrap; }
+
+/* ===== Адаптив ===== */
+@media (max-width: 768px) {
+    .table-responsive { font-size: .85rem; }
+    .col-id, .col-person, .col-date { display: none; }
+    .card-body { padding: .75rem; }
+}
+
+/* ===== Detal-страница: стикки-заголовки ===== */
+.section-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-bg);
+    padding: .5rem 0;
+}

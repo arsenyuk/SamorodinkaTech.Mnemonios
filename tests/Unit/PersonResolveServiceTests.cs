@@ -393,9 +393,10 @@ public class PersonResolveServiceTests
 
         var result = await sut.ResolveAsync(request);
 
-        // ИНН совпадает (inn), но inn_fio не совпадает из-за разных ФИО → Ambiguous
-        result.Status.Should().Be(PersonMatchStatus.Ambiguous);
-        result.KeyConflicts.Should().Contain(c => c.KeyType == "inn_fio");
+        // ИНН совпадает (inn) → Matched, несмотря на расхождение ФИО (inn_fio)
+        // Proof-ключ совпал → конфликт составного ключа не засчитывается
+        result.Status.Should().Be(PersonMatchStatus.Matched);
+        result.MasterId.Should().Be(existingPersonId);
     }
 
     [Fact]
