@@ -109,21 +109,84 @@ def add_toc(doc: Document) -> None:
     update_fields.set(qn("w:val"), "true")
     settings.append(update_fields)
 
-    p = doc.add_paragraph()
-    run = p.add_run()
-    fld_char_begin = OxmlElement("w:fldChar")
-    fld_char_begin.set(qn("w:fldCharType"), "begin")
-    instr_text = OxmlElement("w:instrText")
-    instr_text.set(qn("xml:space"), "preserve")
-    instr_text.text = 'TOC \\o "1-3" \\h \\z \\u'
-    fld_char_separate = OxmlElement("w:fldChar")
-    fld_char_separate.set(qn("w:fldCharType"), "separate")
-    fld_char_text = OxmlElement("w:t")
-    fld_char_text.text = "Содержание будет обновлено при открытии документа."
-    fld_char_end = OxmlElement("w:fldChar")
-    fld_char_end.set(qn("w:fldCharType"), "end")
-    for el in (fld_char_begin, instr_text, fld_char_separate, fld_char_text, fld_char_end):
-        run._r.append(el)
+    # Предопределяем стили TOC 1/2/3 без висячего отступа
+    _ensure_toc_styles(doc)
+
+    # Вставляем TOC field — каждый элемент в отдельном run
+    toc_p = doc.add_paragraph()
+
+    run_begin = toc_p.add_run()
+    fld_begin = OxmlElement("w:fldChar")
+    fld_begin.set(qn("w:fldCharType"), "begin")
+    run_begin._r.append(fld_begin)
+
+    run_instr = toc_p.add_run()
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = ' TOC \\o "1-3" \\h \\z \\u '
+    run_instr._r.append(instr)
+
+    run_sep = toc_p.add_run()
+    fld_sep = OxmlElement("w:fldChar")
+    fld_sep.set(qn("w:fldCharType"), "separate")
+    run_sep._r.append(fld_sep)
+
+    run_text = toc_p.add_run("Обновите содержание: правая кнопка → Обновить поле")
+
+    run_end = toc_p.add_run()
+    fld_end = OxmlElement("w:fldChar")
+    fld_end.set(qn("w:fldCharType"), "end")
+    run_end._r.append(fld_end)
+
+
+def _ensure_toc_styles(doc: Document) -> None:
+    """Создаёт стили TOC 1/2/3 с корректными отступами."""
+    from lxml import etree
+
+    W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    nsmap = {"w": W}
+    styles_el = doc.styles.element
+
+    for level in range(1, 4):
+        style_id = f"TOC{level}"
+        style_name = f"TOC {level}"
+
+        # Проверяем, существует ли уже стиль
+        existing = styles_el.findall(f'.//{{{W}}}style[@{{{W}}}styleId="{style_id}"]')
+        if existing:
+            continue
+
+        style_el = etree.SubElement(styles_el, f"{{{W}}}style")
+        style_el.set(f"{{{W}}}type", "paragraph")
+        style_el.set(f"{{{W}}}styleId", style_id)
+
+        name_el = etree.SubElement(style_el, f"{{{W}}}name")
+        name_el.set(f"{{{W}}}val", style_name)
+
+        based_on = etree.SubElement(style_el, f"{{{W}}}basedOn")
+        based_on.set(f"{{{W}}}val", "Normal")
+
+        next_el = etree.SubElement(style_el, f"{{{W}}}next")
+        next_el.set(f"{{{W}}}val", "Normal")
+
+        # pPr: нет висячего отступа
+        pPr = etree.SubElement(style_el, f"{{{W}}}pPr")
+        ind = etree.SubElement(pPr, f"{{{W}}}ind")
+        ind.set(f"{{{W}}}left", str(level * 220))
+        ind.set(f"{{{W}}}hanging", "0")
+        spacing = etree.SubElement(pPr, f"{{{W}}}spacing")
+        spacing.set(f"{{{W}}}before", "0")
+        spacing.set(f"{{{W}}}after", "40")
+        spacing.set(f"{{{W}}}line", "240")
+        spacing.set(f"{{{W}}}lineRule", "auto")
+
+        # rPr: шрифт Calibri 11pt
+        rPr = etree.SubElement(style_el, f"{{{W}}}rPr")
+        rFonts = etree.SubElement(rPr, f"{{{W}}}rFonts")
+        rFonts.set(f"{{{W}}}ascii", "Calibri")
+        rFonts.set(f"{{{W}}}hAnsi", "Calibri")
+        sz = etree.SubElement(rPr, f"{{{W}}}sz")
+        sz.set(f"{{{W}}}val", "22")
 
 
 def add_page_number(paragraph: OxmlElement) -> None:
