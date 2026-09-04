@@ -100,6 +100,73 @@ public class IdentificationKeyServiceTests
         keys.Should().Contain(k => k.KeyType == "snils_fio");
     }
 
+    [Fact]
+    public void ComputeKeys_DulSeparateFields_DifferentHashThanConcatenated()
+    {
+        // Раздельная передача: серия="4510", номер="123456"
+        var request1 = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = "4510",
+            DulNumber = "123456"
+        });
+
+        // Конкатенация в одном поле: серия="4510123456", номер=""
+        var request2 = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = "4510123456",
+            DulNumber = ""
+        });
+
+        var keys1 = _sut.ComputeKeys(request1);
+        var keys2 = _sut.ComputeKeys(request2);
+
+        var dulKey1 = keys1.FirstOrDefault(k => k.KeyType == "dul")?.KeyValue;
+        var dulKey2 = keys2.FirstOrDefault(k => k.KeyType == "dul")?.KeyValue;
+
+        // Хеши РАЗНЫЕ, потому что нормализация использует разделители:
+        // "21|4510|123456" ≠ "21|4510123456|"
+        dulKey1.Should().NotBeNull();
+        dulKey2.Should().NotBeNull();
+        dulKey1.Should().NotBe(dulKey2);
+    }
+
+    [Fact]
+    public void ComputeKeys_DulWithoutSeparator_ConcatenatedSameAsSeparate()
+    {
+        // Сервис без разделителя
+        var settings = new HmacSettings { Key = TestHmacKey, DulSeparator = "" };
+        var sutNoSep = new IdentificationKeyService(Options.Create(settings), _normalizationService);
+
+        // Раздельная передача: серия="4510", номер="123456"
+        var request1 = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = "4510",
+            DulNumber = "123456"
+        });
+
+        // Конкатенация в одном поле: серия="4510123456", номер=""
+        var request2 = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = "4510123456",
+            DulNumber = ""
+        });
+
+        var keys1 = sutNoSep.ComputeKeys(request1);
+        var keys2 = sutNoSep.ComputeKeys(request2);
+
+        var dulKey1 = keys1.FirstOrDefault(k => k.KeyType == "dul")?.KeyValue;
+        var dulKey2 = keys2.FirstOrDefault(k => k.KeyType == "dul")?.KeyValue;
+
+        // Без разделителя хеши ОДИНАКОВЫЕ: "214510123456" = "214510123456"
+        dulKey1.Should().NotBeNull();
+        dulKey2.Should().NotBeNull();
+        dulKey1.Should().Be(dulKey2);
+    }
+
     private static ResolveRequest CreateRequest(
         string firstName = "ИВАН",
         string lastName = "ИВАНОВ",

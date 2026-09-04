@@ -22,10 +22,6 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-builder.Services.Configure<HmacSettings>(builder.Configuration.GetSection("HmacSettings"));
-
-builder.Services.AddScoped<INormalizationService, NormalizationService>();
-builder.Services.AddScoped<IIdentificationKeyService, IdentificationKeyService>();
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IStewardService, StewardService>();
 builder.Services.AddScoped<IUrlMaskService, UrlMaskService>();

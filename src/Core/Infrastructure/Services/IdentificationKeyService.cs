@@ -14,6 +14,9 @@ public class HmacSettings
 {
     /// <summary>Секретный ключ для вычисления HMAC-SHA256.</summary>
     public string Key { get; set; } = string.Empty;
+
+    /// <summary>Разделитель между полями ДУЛ при вычислении хеша. Пустая строка = без разделителя.</summary>
+    public string DulSeparator { get; set; } = "|";
 }
 
 /// <summary>
@@ -48,6 +51,7 @@ public class IdentificationKeyService : IIdentificationKeyService
 
     private readonly byte[] _hmacKey;
     private readonly INormalizationService _normalizationService;
+    private readonly string _dulSeparator;
 
     /// <summary>
     /// Создаёт новый экземпляр <see cref="IdentificationKeyService"/>.
@@ -57,6 +61,7 @@ public class IdentificationKeyService : IIdentificationKeyService
         INormalizationService normalizationService)
     {
         _hmacKey = Encoding.UTF8.GetBytes(hmacSettings.Value.Key);
+        _dulSeparator = hmacSettings.Value.DulSeparator ?? "|";
         _normalizationService = normalizationService ?? throw new ArgumentNullException(nameof(normalizationService));
     }
 
@@ -156,6 +161,11 @@ public class IdentificationKeyService : IIdentificationKeyService
         if (string.IsNullOrWhiteSpace(series) && string.IsNullOrWhiteSpace(number))
             return null;
 
-        return _normalizationService.NormalizeDul(type ?? string.Empty, series ?? string.Empty, number ?? string.Empty);
+        var normalizedType = _normalizationService.NormalizeName(type ?? string.Empty);
+        var normalizedSeries = _normalizationService.NormalizeName(series ?? string.Empty);
+        var normalizedNumber = _normalizationService.NormalizeName(number ?? string.Empty);
+
+        var combined = $"{normalizedType}{_dulSeparator}{normalizedSeries}{_dulSeparator}{normalizedNumber}";
+        return combined.ToUpperInvariant();
     }
 }
