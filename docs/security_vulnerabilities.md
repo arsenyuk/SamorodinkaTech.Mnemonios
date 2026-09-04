@@ -66,8 +66,8 @@ dotnet add src/Infrastructure package Microsoft.EntityFrameworkCore.Design --ver
 dotnet add src/Infrastructure package Npgsql.EntityFrameworkCore.PostgreSQL --version 10.0.3
 
 # Api
-dotnet add src/Api package Microsoft.EntityFrameworkCore.Design --version 10.0.11
-dotnet add src/Api package Swashbuckle.AspNetCore
+dotnet add src/Applications/Api package Microsoft.EntityFrameworkCore.Design --version 10.0.11
+dotnet add src/Applications/Api package Swashbuckle.AspNetCore
 ```
 
 ### 3. Проверка после обновления
@@ -109,7 +109,7 @@ dotnet list SamorodinkaTech.Mnemonios.slnx package --vulnerable --include-transi
 
 # Проверка конкретного проекта
 dotnet list src/Infrastructure package --vulnerable --include-transitive
-dotnet list src/Api package --vulnerable --include-transitive
+dotnet list src/Applications/Api package --vulnerable --include-transitive
 ```
 
 Команда проверяет все установленные пакеты (прямые и транзитивные) по базе данных NuGet Security Advisories.
@@ -119,7 +119,7 @@ dotnet list src/Api package --vulnerable --include-transitive
 ```bash
 # Проверка на наличие более новых версий
 dotnet list src/Infrastructure package --outdated --include-transitive
-dotnet list src/Api package --outdated --include-transitive
+dotnet list src/Applications/Api package --outdated --include-transitive
 ```
 
 Помогает выявить пакеты, для которых доступны обновления безопасности.
