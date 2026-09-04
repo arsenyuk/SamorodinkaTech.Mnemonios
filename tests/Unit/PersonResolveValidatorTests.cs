@@ -153,6 +153,36 @@ public class PersonResolveValidatorTests
         SnilsValidator.Validate(snils).Should().BeFalse();
     }
 
+    // =========================================================================
+    // DUL type validation tests
+    // =========================================================================
+
+    [Fact]
+    public void Validate_InvalidDulType_ReturnsInvalid()
+    {
+        var request = CreateRequest(evidence: new Evidence { DulType = "99" });
+        var result = PersonResolveValidator.Validate(request);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("Недопустимый код вида документа"));
+    }
+
+    [Fact]
+    public void Validate_ValidDulType_ReturnsValid()
+    {
+        var request = CreateRequest(evidence: new Evidence { DulType = "21" });
+        var result = PersonResolveValidator.Validate(request);
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_DulType91_RequiresDulTypeName()
+    {
+        var request = CreateRequest(evidence: new Evidence { DulType = "91", DulTypeName = "" });
+        var result = PersonResolveValidator.Validate(request);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("DulTypeName"));
+    }
+
     private static ResolveRequest CreateRequest(
         string firstName = "Иван",
         string lastName = "Иванов",
