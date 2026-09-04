@@ -465,29 +465,29 @@ public class PersonResolveService : IPersonResolveService
         CancellationToken cancellationToken)
     {
         var evidence = request.Evidence;
-        if (string.IsNullOrWhiteSpace(evidence?.DulSeries) ||
+        if (string.IsNullOrWhiteSpace(evidence?.DulSeries) &&
             string.IsNullOrWhiteSpace(evidence?.DulNumber))
             return;
 
-        // Использовать HMAC-хеш ДУЛ из вычисленных ключей
+        // Использовать HMAC-хеш ДУЛ из вычисленных ключей (если есть)
         var dulKey = computedKeys.FirstOrDefault(k => k.KeyType == "dul");
-        if (dulKey is null)
-            return;
+        var documentHash = dulKey?.KeyValue;
 
-        var documentHash = dulKey.KeyValue;
-
-        // Проверить дубликат (уникальный индекс person_id + document_hash)
-        var exists = await _context.PersonDocuments
-            .AnyAsync(d => d.MasterId == masterId && d.DocumentHash == documentHash, cancellationToken);
-        if (exists)
-            return;
+        // Проверить дубликат только при наличии хеша
+        if (!string.IsNullOrWhiteSpace(documentHash))
+        {
+            var exists = await _context.PersonDocuments
+                .AnyAsync(d => d.MasterId == masterId && d.DocumentHash == documentHash, cancellationToken);
+            if (exists)
+                return;
+        }
 
         var doc = new PersonDocument
         {
             Id = Guid.NewGuid(),
             MasterId = masterId,
             DocumentType = evidence.DulType ?? string.Empty,
-            DocumentHash = documentHash,
+            DocumentHash = documentHash ?? string.Empty,
             CreatedAt = DateTime.UtcNow
         };
         _context.PersonDocuments.Add(doc);
