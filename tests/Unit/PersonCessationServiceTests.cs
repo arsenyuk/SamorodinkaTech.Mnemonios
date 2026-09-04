@@ -16,6 +16,7 @@ public class PersonCessationServiceTests
 {
     private readonly Mock<IPersonRepository> _repositoryMock;
     private readonly Mock<ILogger<PersonCessationService>> _loggerMock;
+    private readonly Mock<IClientIpProvider> _ipProviderMock;
     private readonly PersonCessationService _sut;
     private readonly AppDbContext _dbContext;
 
@@ -23,6 +24,8 @@ public class PersonCessationServiceTests
     {
         _repositoryMock = new Mock<IPersonRepository>();
         _loggerMock = new Mock<ILogger<PersonCessationService>>();
+        _ipProviderMock = new Mock<IClientIpProvider>();
+        _ipProviderMock.Setup(p => p.GetClientIp()).Returns("127.0.0.1");
 
         var dbContextOptions = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -30,7 +33,7 @@ public class PersonCessationServiceTests
             .Options;
         _dbContext = new AppDbContext(dbContextOptions);
 
-        _sut = new PersonCessationService(_repositoryMock.Object, _loggerMock.Object, _dbContext);
+        _sut = new PersonCessationService(_repositoryMock.Object, _loggerMock.Object, _ipProviderMock.Object, _dbContext);
 
         SetupStagingMocks();
     }
@@ -43,12 +46,6 @@ public class PersonCessationServiceTests
         _repositoryMock
             .Setup(r => r.CreateExtDeferredCessationAsync(It.IsAny<ExtPersonDeferredCessation>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ExtPersonDeferredCessation e, CancellationToken _) => e);
-        _repositoryMock
-            .Setup(r => r.MarkExtCessationProcessedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _repositoryMock
-            .Setup(r => r.MarkExtDeferredCessationProcessedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
     }
 
     // =========================================================================

@@ -20,13 +20,17 @@ public class PersonResolveServiceTests
     private readonly Mock<IPersonRepository> _repositoryMock;
     private readonly Mock<IPersonCessationService> _cessationServiceMock;
     private readonly Mock<IPersonMergeService> _mergeServiceMock;
+    private readonly Mock<IClientIpProvider> _ipProviderMock;
     private readonly PersonResolveService _sut;
+    private readonly AppDbContext _dbContext;
 
     public PersonResolveServiceTests()
     {
         _repositoryMock = new Mock<IPersonRepository>();
         _cessationServiceMock = new Mock<IPersonCessationService>();
         _mergeServiceMock = new Mock<IPersonMergeService>();
+        _ipProviderMock = new Mock<IClientIpProvider>();
+        _ipProviderMock.Setup(p => p.GetClientIp()).Returns("127.0.0.1");
         var normalizationService = new NormalizationService();
         var hmacSettings = Options.Create(new HmacSettings { Key = TestHmacKey });
         var keyService = new IdentificationKeyService(hmacSettings, normalizationService);
@@ -35,7 +39,7 @@ public class PersonResolveServiceTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-        var dbContext = new AppDbContext(dbContextOptions);
+        _dbContext = new AppDbContext(dbContextOptions);
 
         _sut = new PersonResolveService(
             _repositoryMock.Object,
@@ -43,7 +47,8 @@ public class PersonResolveServiceTests
             keyService,
             _cessationServiceMock.Object,
             _mergeServiceMock.Object,
-            dbContext);
+            _ipProviderMock.Object,
+            _dbContext);
 
         SetupStagingMocks();
     }
@@ -135,6 +140,7 @@ public class PersonResolveServiceTests
             keyService,
             _cessationServiceMock.Object,
             _mergeServiceMock.Object,
+            _ipProviderMock.Object,
             dbContext);
 
         var result = await sut.ResolveAsync(request);
@@ -195,6 +201,7 @@ public class PersonResolveServiceTests
             keyService,
             _cessationServiceMock.Object,
             _mergeServiceMock.Object,
+            _ipProviderMock.Object,
             dbContext);
 
         var result = await sut.ResolveAsync(request);
@@ -256,6 +263,7 @@ public class PersonResolveServiceTests
             keyService,
             _cessationServiceMock.Object,
             _mergeServiceMock.Object,
+            _ipProviderMock.Object,
             dbContext);
 
         await sut.ResolveAsync(request);
@@ -389,6 +397,7 @@ public class PersonResolveServiceTests
             keyService,
             _cessationServiceMock.Object,
             _mergeServiceMock.Object,
+            _ipProviderMock.Object,
             dbContext);
 
         var result = await sut.ResolveAsync(request);
@@ -452,6 +461,7 @@ public class PersonResolveServiceTests
             keyService,
             _cessationServiceMock.Object,
             _mergeServiceMock.Object,
+            _ipProviderMock.Object,
             dbContext);
 
         var result = await sut.ResolveAsync(request);
@@ -462,6 +472,242 @@ public class PersonResolveServiceTests
     }
 
 
+
+    // =========================================================================
+    // DUL document saving tests
+    // =========================================================================
+
+    [Fact]
+    public async Task ResolveAsync_CompleteDul_SavesDocument()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = "4510",
+            DulNumber = "123456"
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.Status.Should().Be(PersonMatchStatus.Unmatched);
+        result.MasterId.Should().NotBeNull();
+
+        // Проверить, что документ сохранён в InMemory БД
+        var docs = _dbContext.PersonDocuments.Where(d => d.MasterId == createdPerson.MasterId).ToList();
+        docs.Should().HaveCount(1);
+        docs[0].DocumentType.Should().Be("21");
+        docs[0].DocumentHash.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DulSeriesOnly_SavesIncompleteDocument()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = "4510",
+            DulNumber = null
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.Status.Should().Be(PersonMatchStatus.Unmatched);
+        result.HasDefects.Should().BeTrue();
+        result.Defects.Should().Contain(d => d.DefectType == "dul_incomplete");
+
+        // Проверить, что документ сохранён (неполный)
+        var docs = _dbContext.PersonDocuments.Where(d => d.MasterId == createdPerson.MasterId).ToList();
+        docs.Should().HaveCount(1);
+        docs[0].DocumentType.Should().Be("21");
+        docs[0].DocumentHash.Should().BeEmpty(); // Неполный документ без хеша
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DulNumberOnly_SavesIncompleteDocument()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = null,
+            DulNumber = "123456"
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.Status.Should().Be(PersonMatchStatus.Unmatched);
+        result.HasDefects.Should().BeTrue();
+        result.Defects.Should().Contain(d => d.DefectType == "dul_incomplete");
+
+        var docs = _dbContext.PersonDocuments.Where(d => d.MasterId == createdPerson.MasterId).ToList();
+        docs.Should().HaveCount(1);
+        docs[0].DocumentHash.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResolveAsync_NoDulData_NoDocumentSaved()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            DulType = "21",
+            DulSeries = null,
+            DulNumber = null
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+
+        var result = await _sut.ResolveAsync(request);
+
+        var docs = _dbContext.PersonDocuments.Where(d => d.MasterId == createdPerson.MasterId).ToList();
+        docs.Should().BeEmpty();
+    }
+
+    // =========================================================================
+    // Defect saving tests
+    // =========================================================================
+
+    [Fact]
+    public async Task ResolveAsync_InvalidInnAndSnils_BothDefectsSaved()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            Inn = "123456789012",
+            Snils = "12345678901"
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+        _repositoryMock
+            .Setup(r => r.SaveDefectsAsync(It.IsAny<IEnumerable<PersonDefect>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.HasDefects.Should().BeTrue();
+        result.Defects.Should().Contain(d => d.DefectType == "invalid_inn");
+        result.Defects.Should().Contain(d => d.DefectType == "invalid_snils");
+        _repositoryMock.Verify(r =>
+            r.SaveDefectsAsync(It.IsAny<IEnumerable<PersonDefect>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DulSeriesWithoutNumber_DefectSaved()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            DulSeries = "4510",
+            DulNumber = null
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+        _repositoryMock
+            .Setup(r => r.SaveDefectsAsync(It.IsAny<IEnumerable<PersonDefect>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.HasDefects.Should().BeTrue();
+        result.Defects.Should().Contain(d =>
+            d.DefectType == "dul_incomplete" &&
+            d.DefectMessage.Contains("серия без номера"));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DulNumberWithoutSeries_DefectSaved()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            DulSeries = null,
+            DulNumber = "123456"
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+        _repositoryMock
+            .Setup(r => r.SaveDefectsAsync(It.IsAny<IEnumerable<PersonDefect>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.HasDefects.Should().BeTrue();
+        result.Defects.Should().Contain(d =>
+            d.DefectType == "dul_incomplete" &&
+            d.DefectMessage.Contains("номер без серии"));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ValidData_NoDefects()
+    {
+        var request = CreateRequest(evidence: new Evidence
+        {
+            Inn = "7707083893",
+            Snils = "12345678964",
+            DulType = "21",
+            DulSeries = "4510",
+            DulNumber = "123456"
+        });
+        var createdPerson = new Person { MasterId = Guid.NewGuid() };
+
+        _repositoryMock
+            .Setup(r => r.FindPersonIdsByKeysAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Person>(), It.IsAny<IEnumerable<PersonIdentificationKey>>(), It.IsAny<PersonExternalId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdPerson);
+
+        var result = await _sut.ResolveAsync(request);
+
+        result.HasDefects.Should().BeFalse();
+        _repositoryMock.Verify(r =>
+            r.SaveDefectsAsync(It.IsAny<IEnumerable<PersonDefect>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 
     private static ResolveRequest CreateRequest(
         string firstName = "Иван",
