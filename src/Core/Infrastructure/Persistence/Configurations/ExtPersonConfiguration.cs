@@ -29,7 +29,6 @@ public class ExtPersonConfiguration : IEntityTypeConfiguration<ExtPerson>
         builder.Property(e => e.KeyDulFio).HasColumnName("key_dul_fio").HasMaxLength(255);
 
         builder.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
-        builder.Property(e => e.ProcessedAt).HasColumnName("processed_at");
         builder.Property(e => e.SourceIp).HasColumnName("source_ip").HasMaxLength(45);
 
         builder.HasIndex(e => e.MasterId).HasDatabaseName("ix_ext_persons_person_id");

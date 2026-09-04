@@ -125,9 +125,6 @@ public record ExtPersonInfo
     /// <summary>Дата создания запроса.</summary>
     public DateTime CreatedAt { get; init; }
 
-    /// <summary>Дата обработки (null если не обработан).</summary>
-    public DateTime? ProcessedAt { get; init; }
-
     /// <summary>Дефекты этого staging-запроса.</summary>
     public IReadOnlyList<ExtPersonDefectInfo> Defects { get; init; } = [];
 }

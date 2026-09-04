@@ -418,33 +418,6 @@ public class PersonRepository : IPersonRepository
         if (extPerson is not null)
         {
             extPerson.MasterId = masterId;
-            extPerson.ProcessedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    /// <inheritdoc/>
-    public async Task MarkExtCessationProcessedAsync(
-        Guid extCessationId,
-        CancellationToken cancellationToken = default)
-    {
-        var ext = await _context.ExtPersonCessations.FindAsync([extCessationId], cancellationToken);
-        if (ext is not null)
-        {
-            ext.ProcessedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    /// <inheritdoc/>
-    public async Task MarkExtDeferredCessationProcessedAsync(
-        Guid extDeferredCessationId,
-        CancellationToken cancellationToken = default)
-    {
-        var ext = await _context.ExtPersonDeferredCessations.FindAsync([extDeferredCessationId], cancellationToken);
-        if (ext is not null)
-        {
-            ext.ProcessedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
         }
     }

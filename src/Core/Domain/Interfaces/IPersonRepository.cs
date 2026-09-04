@@ -176,18 +176,4 @@ public interface IPersonRepository
         Guid extPersonId,
         Guid? masterId,
         CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Отмечает staging-запись прекращения как обработанную.
-    /// </summary>
-    Task MarkExtCessationProcessedAsync(
-        Guid extCessationId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Отмечает staging-запись отложенного прекращения как обработанную.
-    /// </summary>
-    Task MarkExtDeferredCessationProcessedAsync(
-        Guid extDeferredCessationId,
-        CancellationToken cancellationToken = default);
 }

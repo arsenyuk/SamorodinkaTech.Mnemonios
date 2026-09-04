@@ -26,9 +26,6 @@ public class ExtPersonDeferredCessation
     /// <summary>Дата создания записи.</summary>
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>Дата завершения обработки.</summary>
-    public DateTime? ProcessedAt { get; set; }
-
     /// <summary>IP-адрес источника вызова.</summary>
     public string? SourceIp { get; set; }
 }

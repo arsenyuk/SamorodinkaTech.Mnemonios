@@ -170,7 +170,6 @@ public class StewardService : IStewardService
                     ExternalPersonId = ep.ExternalPersonId,
                     ExternalPersonType = ep.ExternalPersonType,
                     CreatedAt = ep.CreatedAt,
-                    ProcessedAt = ep.ProcessedAt,
                     Defects = (epDefects ?? []).Select(d => new ExtPersonDefectInfo
                     {
                         DefectType = d.DefectType,

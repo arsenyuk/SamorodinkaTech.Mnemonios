@@ -64,7 +64,6 @@ public class ExtPersonsModel : PageModel
                 ExternalPersonId = ep.ExternalPersonId,
                 ExternalPersonType = ep.ExternalPersonType,
                 CreatedAt = ep.CreatedAt,
-                ProcessedAt = ep.ProcessedAt,
                 KeyInn = ep.KeyInn,
                 KeySnils = ep.KeySnils,
                 KeyDul = ep.KeyDul,
@@ -101,7 +100,6 @@ public record ExtPersonRow
     public string ExternalPersonId { get; init; } = string.Empty;
     public string? ExternalPersonType { get; init; }
     public DateTime CreatedAt { get; init; }
-    public DateTime? ProcessedAt { get; init; }
     public string? KeyInn { get; init; }
     public string? KeySnils { get; init; }
     public string? KeyDul { get; init; }

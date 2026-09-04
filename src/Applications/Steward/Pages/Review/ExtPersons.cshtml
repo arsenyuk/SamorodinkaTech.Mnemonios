@@ -47,8 +47,6 @@ else
                     <dd class="col-sm-9"><code>@ep.Id</code></dd>
                     <dt class="col-sm-3">Создано</dt>
                     <dd class="col-sm-9">@ToLocalString(ep.CreatedAt)</dd>
-                    <dt class="col-sm-3">Обработано</dt>
-                    <dd class="col-sm-9">@(ep.ProcessedAt.HasValue ? ToLocalString(ep.ProcessedAt.Value) : "—")</dd>
                 </dl>
 
                 <hr />

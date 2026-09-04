@@ -24,7 +24,6 @@ public class ExtPersonCessationConfiguration : IEntityTypeConfiguration<ExtPerso
         builder.Property(e => e.ProcessingStatus).HasColumnName("processing_status").HasMaxLength(20).IsRequired().HasDefaultValue("pending");
 
         builder.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
-        builder.Property(e => e.ProcessedAt).HasColumnName("processed_at");
         builder.Property(e => e.SourceIp).HasColumnName("source_ip").HasMaxLength(45);
 
         builder.HasIndex(e => e.PersonId).HasDatabaseName("ix_ext_person_cessations_person_id");
