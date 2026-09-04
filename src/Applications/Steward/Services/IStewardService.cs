@@ -33,4 +33,9 @@ public interface IStewardService
     /// </summary>
     /// <returns>Данные мастер-записи или null, если запись не найдена.</returns>
     Task<PersonData?> GetPersonDataAsync(Guid masterId, CancellationToken ct);
+
+    /// <summary>
+    /// Получить список мастер-записей, имеющих дефекты.
+    /// </summary>
+    Task<IReadOnlyList<PersonDefectsListItem>> GetPersonsWithDefectsAsync(CancellationToken ct);
 }

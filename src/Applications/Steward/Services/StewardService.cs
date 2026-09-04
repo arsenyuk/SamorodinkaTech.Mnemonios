@@ -214,4 +214,23 @@ public class StewardService : IStewardService
 
         return result;
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<PersonDefectsListItem>> GetPersonsWithDefectsAsync(CancellationToken ct)
+    {
+        return await _context.Persons
+            .Where(p => _context.PersonDefects.Any(d => d.MasterId == p.MasterId))
+            .OrderByDescending(p => _context.PersonDefects.Count(d => d.MasterId == p.MasterId))
+            .ThenByDescending(p => p.CreatedAt)
+            .Select(p => new PersonDefectsListItem(
+                p.MasterId,
+                p.CreatedAt,
+                _context.PersonDefects.Count(d => d.MasterId == p.MasterId),
+                _context.PersonDefects
+                    .Where(d => d.MasterId == p.MasterId)
+                    .Select(d => d.DefectType)
+                    .Distinct()
+                    .ToList()))
+            .ToListAsync(ct);
+    }
 }

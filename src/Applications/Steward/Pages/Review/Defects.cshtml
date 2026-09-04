@@ -1,0 +1,56 @@
+@page
+@model DefectsModel
+@{
+    ViewData["Title"] = "Мастер-записи с дефектами";
+}
+
+<h1 class="mb-4">Мастер-записи с дефектами</h1>
+
+@if (!Model.Items.Any())
+{
+    <div class="alert alert-success d-flex align-items-center" role="alert">
+        <i class="bi bi-check-circle me-2"></i>
+        Нет записей с дефектами.
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>MasterId</th>
+                    <th class="col-date">Создано</th>
+                    <th class="text-center">Дефектов</th>
+                    <th>Типы дефектов</th>
+                    <th class="col-actions"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><code>@item.MasterId.ToString()[..8]</code></td>
+                        <td>@item.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td class="text-center">
+                            <span class="badge bg-danger">@item.DefectCount</span>
+                        </td>
+                        <td>
+                            @foreach (var dt in item.DefectTypes)
+                            {
+                                <span class="badge bg-warning text-dark me-1">@dt</span>
+                            }
+                        </td>
+                        <td class="col-actions">
+                            <a asp-page="/Review/Person" asp-route-masterId="@item.MasterId"
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> Подробнее
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted mt-2" style="font-size:.85em">Всего записей: @Model.Items.Count</p>
+}
