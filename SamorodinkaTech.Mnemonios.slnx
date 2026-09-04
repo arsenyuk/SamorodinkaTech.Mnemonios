@@ -10,6 +10,9 @@
     <Folder Name="/src/Applications/Worker/">
       <Project Path="src/Applications/Worker/SamorodinkaTech.Mnemonios.Worker.csproj" />
     </Folder>
+    <Folder Name="/src/Applications/Proxy/">
+      <Project Path="src/Applications/Proxy/SamorodinkaTech.Mnemonios.Proxy.csproj" />
+    </Folder>
   </Folder>
   <Folder Name="/src/Core/">
     <Folder Name="/src/Core/Common/">

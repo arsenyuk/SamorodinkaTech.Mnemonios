@@ -480,6 +480,38 @@ Master Person Index (MPI) — обеспечивает определение е
 
 ---
 
+### POST /persons/resolve-by-hashes
+
+Идентификация персоны по предвычисленным HMAC-SHA256 хешам. Используется proxy-сервисом: ПДн остаются на стороне источника, в основной сервис передаются только хеши.
+
+**Request:**
+```json
+{
+  "sourceSystemId": "CRM",
+  "externalPersonId": "ext-12345",
+  "externalPersonType": "client",
+  "organizationUnitKey": "unit-001",
+  "keyInn": "a1b2c3d4...",
+  "keySnils": "e5f6a7b8...",
+  "keyDul": "c9d0e1f2...",
+  "keyInnFio": "11223344...",
+  "keySnilsFio": "55667788...",
+  "keyDulFio": "99aabbcc..."
+}
+```
+
+**Поля запроса:**
+- `sourceSystemId` — обязательный, идентификатор внешней системы
+- `externalPersonId` — обязательный, идентификатор лица во внешней системе
+- `externalPersonType` — необязательный, тип записи во внешней системе
+- `organizationUnitKey` — необязательный, ключ организационной единицы
+- `keyInn`, `keySnils`, `keyDul` — необязательные, HMAC-SHA256 хеши proof-ключей
+- `keyInnFio`, `keySnilsFio`, `keyDulFio` — необязательные, HMAC-SHA256 хеши составных ключей
+
+> Хотя бы один хеш обязателен. Ответ аналогичен `POST /persons/resolve`.
+
+---
+
 ## Схема базы данных
 
 Подробнее: [docs/database.md](database.md)

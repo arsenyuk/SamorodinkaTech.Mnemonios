@@ -52,7 +52,8 @@ SamorodinkaTech.Mnemonios/
 │   ├── Applications/             # Исполняемые проекты
 │   │   ├── Api/                  # ASP.NET Core Minimal API (эンドпоинты)
 │   │   ├── Steward/              # ASP.NET Core Razor Pages (АРМ стюарда)
-│   │   └── Worker/               # Фоновые задачи (планировщик)
+│   │   ├── Worker/               # Фоновые задачи (планировщик)
+│   │   └── Proxy/                # Proxy-сервис: хеширование ПДн на стороне источника
 │   └── Core/                     # Библиотеки
 │       ├── Domain/               # Доменный слой
 │       │   ├── Entities/         # Сущности
@@ -74,7 +75,7 @@ SamorodinkaTech.Mnemonios/
 │   └── decision_records/         # Architecture Decision Records
 ├── tools/
 │   └── db/                       # SQL-скрипты (01_schema.sql, 00_reset, 02_seed)
-├── docker-compose.yml            # PostgreSQL 16 + Api + Worker + Steward
+├── docker-compose.yml            # PostgreSQL 16 + Api + Worker + Steward + Proxy
 ├── AGENTS.md                     # Правила проекта
 └── CONTRIBUTING.md               # Руководство контрибьютора
 ```
@@ -92,6 +93,7 @@ SamorodinkaTech.Mnemonios/
 | **NormalizationService** | Нормализация ФИО, ИНН, СНИЛС, ДУЛ (trim, collapse, NFC, uppercase) |
 | **IdentificationKeyService** | Вычисление HMAC-SHA256 ключей для детерминированного сопоставления |
 | **PersonResolveService** | Основной алгоритм идентификации (Matched/Unmatched/Ambiguous) + автозакрытие конфликтов |
+| **PersonHashResolveService** | Идентификация по предвычисленным хешам (для proxy-сервиса) |
 | **PersonMergeService** | Слияние двух персон: перенос ключей, внешних ID, документов в выживающую запись |
 | **PersonRepository** | CRUD операции с транзакционной поддержкой (BDR-015) |
 | **PersonResolveValidator** | Серверная валидация (ИНН, СНИЛС, обязательные поля) |

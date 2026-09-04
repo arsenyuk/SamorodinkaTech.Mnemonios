@@ -66,6 +66,23 @@ services:
     networks:
       - mnemonios
 
+  proxy:
+    build:
+      context: .
+      dockerfile: src/Applications/Proxy/Dockerfile
+    container_name: mnemonios-proxy
+    environment:
+      - HmacSettings__Key=${HMAC_KEY:-default_dev_key_replace_in_production_32ch}
+      - Proxy__MnemoniosApiUrl=http://api:5080
+      - Proxy__TimeoutSeconds=${PROXY_TIMEOUT:-30}
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+    ports:
+      - "${PROXY_PORT:-5004}:5080"
+    depends_on:
+      - api
+    networks:
+      - mnemonios
+
 volumes:
   pgdata:
 

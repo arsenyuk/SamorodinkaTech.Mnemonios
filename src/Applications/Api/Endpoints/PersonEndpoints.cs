@@ -75,6 +75,12 @@ public static class PersonEndpoints
             .WithSummary("Получение классификатора видов документов, удостоверяющих личность (ДУЛ).")
             .Produces<DulClassifierResponse>(StatusCodes.Status200OK);
 
+        group.MapPost("/resolve-by-hashes", HandleResolveByHashesAsync)
+            .WithName("ResolvePersonByHashes")
+            .WithSummary("Идентификация физического лица по предвычисленным HMAC-SHA256 хешам (proxy-сервис).")
+            .Produces<ResolveResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest);
+
         group.MapGet("/review", HandleGetReviewQueueAsync)
             .WithName("GetReviewQueue")
             .WithSummary("Очередь на ручную обработку стюардом (Ambiguous).")
@@ -347,6 +353,33 @@ public static class PersonEndpoints
         {
             logger.LogError(ex, "Error during reconciliation");
             return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
+        }
+    }
+
+    private static async Task<IResult> HandleResolveByHashesAsync(
+        HashResolveRequest request,
+        IPersonHashResolveService hashResolveService,
+        ILoggerFactory loggerFactory,
+        CancellationToken ct)
+    {
+        var logger = loggerFactory.CreateLogger("PersonEndpoints.ResolveByHashes");
+
+        try
+        {
+            var result = await hashResolveService.ResolveByHashesAsync(request, ct);
+            logger.LogInformation("Person resolved by hashes: status={Status}, masterId={MasterId}",
+                result.Status, result.MasterId);
+            return Results.Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            logger.LogWarning("Hash validation failed: {Message}", ex.Message);
+            return Results.BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning("Conflict: {Message}", ex.Message);
+            return Results.Conflict(new { error = ex.Message });
         }
     }
 

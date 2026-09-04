@@ -201,6 +201,23 @@ dotnet run --project src/Applications/Api
 
 Swagger UI: `http://localhost:5000/swagger`
 АРМ Стюарда: `http://localhost:5003`
+Proxy-сервис: `http://localhost:5004`
+
+### Запуск proxy-сервиса
+
+Proxy-сервис вычисляет HMAC-SHA256 хеши на стороне источника ПДн и отправляет только хеши в основной API.
+
+```bash
+# Запуск proxy отдельно (лесная разработка)
+dotnet run --project src/Applications/Proxy
+
+# Или через Docker Compose (proxy на порту 5004)
+docker compose up -d proxy
+```
+
+Конфигурация proxy:
+- `HmacSettings:Key` — HMAC-ключ (должен совпадать с основным API)
+- `Proxy:MnemoniosApiUrl` — URL основного API (по умолчанию `http://api:5080`)
 
 ---
 
