@@ -1020,8 +1020,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         var result = await response.Content.ReadFromJsonAsync<ResolveResponse>();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        result!.Status.Should().Be(PersonMatchStatus.Unmatched);
-        result.MasterId.Should().NotBeNull();
+        result!.MasterId.Should().NotBeNull();
         result.HasDefects.Should().BeTrue();
         result.Defects.Should().Contain(d => d.DefectType == "invalid_inn");
     }
@@ -1047,8 +1046,7 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         var result = await response.Content.ReadFromJsonAsync<ResolveResponse>();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        result!.Status.Should().Be(PersonMatchStatus.Unmatched);
-        result.MasterId.Should().NotBeNull();
+        result!.MasterId.Should().NotBeNull();
         result.HasDefects.Should().BeTrue();
         result.Defects.Should().Contain(d => d.DefectType == "invalid_snils");
     }

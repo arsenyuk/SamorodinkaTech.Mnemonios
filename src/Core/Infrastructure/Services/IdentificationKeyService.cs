@@ -136,9 +136,6 @@ public class IdentificationKeyService : IIdentificationKeyService
         if (normalized.Length != 10 && normalized.Length != 12)
             return null;
 
-        if (!InnValidator.Validate(inn))
-            return null;
-
         return normalized;
     }
 
@@ -149,9 +146,6 @@ public class IdentificationKeyService : IIdentificationKeyService
 
         var normalized = _normalizationService.NormalizeSnils(snils);
         if (normalized.Length != 11)
-            return null;
-
-        if (!SnilsValidator.Validate(snils))
             return null;
 
         return normalized;

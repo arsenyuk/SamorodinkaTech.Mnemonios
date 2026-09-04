@@ -79,25 +79,25 @@ public class IdentificationKeyServiceTests
     }
 
     [Fact]
-    public void ComputeKeys_InvalidInn_SkipsInnKeys()
+    public void ComputeKeys_InvalidInn_CreatesInnKeys()
     {
         var request = CreateRequest(evidence: new Evidence { Inn = "123456789012" });
 
         var keys = _sut.ComputeKeys(request);
 
-        keys.Should().NotContain(k => k.KeyType == "inn");
-        keys.Should().NotContain(k => k.KeyType == "inn_fio");
+        keys.Should().Contain(k => k.KeyType == "inn");
+        keys.Should().Contain(k => k.KeyType == "inn_fio");
     }
 
     [Fact]
-    public void ComputeKeys_InvalidSnils_SkipsSnilsKeys()
+    public void ComputeKeys_InvalidSnils_CreatesSnilsKeys()
     {
         var request = CreateRequest(evidence: new Evidence { Snils = "12345678901" });
 
         var keys = _sut.ComputeKeys(request);
 
-        keys.Should().NotContain(k => k.KeyType == "snils");
-        keys.Should().NotContain(k => k.KeyType == "snils_fio");
+        keys.Should().Contain(k => k.KeyType == "snils");
+        keys.Should().Contain(k => k.KeyType == "snils_fio");
     }
 
     private static ResolveRequest CreateRequest(
