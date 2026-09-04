@@ -49,29 +49,34 @@ graph TB
 ```
 SamorodinkaTech.Mnemonios/
 ├── src/
-│   ├── Api/                        # ASP.NET Core Minimal API (эンドпоинты, Program.cs)
-│   ├── Domain/                     # Доменный слой
-│   │   ├── Entities/               # Сущности (Person, PersonIdentificationKey, PersonExternalId, PersonDefect, PersonDocument, PersonDeferredCessation)
-│   │   ├── Enums/                  # Перечисления (PersonMatchStatus)
-│   │   ├── Interfaces/             # Абстракции (IPersonRepository, IPersonResolveService, IPersonMergeService)
-│   │   ├── Validation/             # Серверная валидация (PersonResolveValidator)
-│   │   └── DTOs/                   # Модели запросов/ответов
-│   ├── Infrastructure/             # Инфраструктурный слой
-│   │   ├── Persistence/            # EF Core DbContext + конфигурации (snake_case маппинг)
-│   │   └── Services/               # Реализации (NormalizationService, IdentificationKeyService,
-│   │                               #   PersonRepository, PersonResolveService)
-│   └── Common/                     # Общие утилиты
+│   ├── Applications/             # Исполняемые проекты
+│   │   ├── Api/                  # ASP.NET Core Minimal API (эンドпоинты)
+│   │   ├── Steward/              # ASP.NET Core Razor Pages (АРМ стюарда)
+│   │   └── Worker/               # Фоновые задачи (планировщик)
+│   └── Core/                     # Библиотеки
+│       ├── Domain/               # Доменный слой
+│       │   ├── Entities/         # Сущности
+│       │   ├── Enums/            # Перечисления
+│       │   ├── Interfaces/       # Абстракции (порты)
+│       │   ├── Validation/       # Серверная валидация
+│       │   └── DTOs/             # Модели запросов/ответов
+│       ├── Infrastructure/       # Инфраструктурный слой
+│       │   ├── Persistence/      # EF Core DbContext + конфигурации
+│       │   ├── Services/         # Реализации сервисов
+│       │   ├── Middleware/       # ExceptionLoggingMiddleware
+│       │   └── Common/           # ExceptionFlattener
+│       └── Common/               # Общие утилиты
 ├── tests/
-│   ├── Unit/                       # Unit тесты (xUnit + Moq + FluentAssertions 6.12.0)
-│   └── Integration/                # Integration тесты (WebApplicationFactory)
-├── docs/                           # Документация
-│   ├── architecture.md             # Этот файл
-│   └── decision_records/           # Architecture Decision Records
+│   ├── Unit/                     # Unit тесты (xUnit + Moq + FluentAssertions)
+│   └── Integration/              # Integration тесты (WebApplicationFactory)
+├── docs/                         # Документация
+│   ├── architecture.md           # Этот файл
+│   └── decision_records/         # Architecture Decision Records
 ├── tools/
-│   └── db/                         # SQL-скрипты (01_schema.sql, 00_reset, 02_seed)
-├── docker-compose.yml              # PostgreSQL 16
-├── AGENTS.md                       # Правила проекта
-└── CONTRIBUTING.md                 # Руководство контрибьютора
+│   └── db/                       # SQL-скрипты (01_schema.sql, 00_reset, 02_seed)
+├── docker-compose.yml            # PostgreSQL 16 + Api + Worker + Steward
+├── AGENTS.md                     # Правила проекта
+└── CONTRIBUTING.md               # Руководство контрибьютора
 ```
 
 ---
@@ -86,7 +91,7 @@ SamorodinkaTech.Mnemonios/
 |-----------|----------|
 | **NormalizationService** | Нормализация ФИО, ИНН, СНИЛС, ДУЛ (trim, collapse, NFC, uppercase) |
 | **IdentificationKeyService** | Вычисление HMAC-SHA256 ключей для детерминированного сопоставления |
-| **PersonResolveService** | Основной алгоритм идентификации (Matched/Unmatched/Conflict/Auto-merge) |
+| **PersonResolveService** | Основной алгоритм идентификации (Matched/Unmatched/Ambiguous) + автозакрытие конфликтов |
 | **PersonMergeService** | Слияние двух персон: перенос ключей, внешних ID, документов в выживающую запись |
 | **PersonRepository** | CRUD операции с транзакционной поддержкой (BDR-015) |
 | **PersonResolveValidator** | Серверная валидация (ИНН, СНИЛС, обязательные поля) |

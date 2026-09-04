@@ -307,7 +307,7 @@ SELECT COUNT(*) FROM person_external_ids WHERE person_id = :masterId
 | `src/Infrastructure/Services/PersonCessationService.cs` | `ReconcileAsync()` |
 | `src/Infrastructure/Services/PersonCessationService.cs` | `ProcessDeferredCessationsAsync()` |
 | `src/Infrastructure/Services/PersonCessationService.cs` | `DeleteGoldenRecordsAsync()` |
-| `src/Api/Endpoints/PersonEndpoints.cs` | `HandleReconcileAsync()` |
+| `src/Applications/Api/Endpoints/PersonEndpoints.cs` | `HandleReconcileAsync()` |
 | `src/Domain/Interfaces/IPersonCessationService.cs` | `ReconcileAsync()` (интерфейс) |
 | `src/Domain/Interfaces/IPersonCessationService.cs` | `ProcessDeferredCessationsAsync()` (интерфейс) |
 | `src/Worker/Tasks/ReconcileCessationsTask.cs` | Фоновая задача |

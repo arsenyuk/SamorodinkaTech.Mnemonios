@@ -588,3 +588,101 @@ POST /persons/resolve
   - Документы (ДУЛ) перенесены
   - Лицо `b2222...` удалено
 - Внешняя связь `ERP/emp-400` привязана к выжившему лицу
+
+---
+
+## Автозакрытие конфликта при исправлении данных
+
+Внешняя система отправляет запрос с конфликтными данными → Ambiguous. Затем исправляет данные → конфликт автоматически закрывается и сохраняется в историю.
+
+### Шаг 1: Система A создаёт персону с ДУЛ
+
+```json
+POST /persons/resolve
+{
+  "lastName": "Иванов",
+  "firstName": "Иван",
+  "evidence": {
+    "dulType": "21",
+    "dulSeries": "4510",
+    "dulNumber": "123456"
+  },
+  "identifiers": [
+    { "sourceSystemId": "HR", "externalPersonId": "emp-001" }
+  ]
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "Unmatched",
+  "masterId": "a1111111-1111-1111-1111-111111111111"
+}
+```
+
+### Шаг 2: Система B создаёт того же человека с тем же ДУЛ
+
+```json
+POST /persons/resolve
+{
+  "lastName": "Петров",
+  "firstName": "Пётр",
+  "evidence": {
+    "dulType": "21",
+    "dulSeries": "4510",
+    "dulNumber": "123456"
+  },
+  "identifiers": [
+    { "sourceSystemId": "CRM", "externalPersonId": "cli-001" }
+  ]
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "Ambiguous",
+  "masterId": "b2222222-2222-2222-2222-222222222222"
+}
+```
+
+**Состояние БД:**
+- `person_review_queue`: 1 запись (pending), связывает `a1111...` с `b2222...`
+- В очереди: совпавший ключ `dul`, конфликт `dul_fio`
+
+### Шаг 3: Система B исправляет данные (другой ДУЛ)
+
+```json
+POST /persons/resolve
+{
+  "lastName": "Петров",
+  "firstName": "Пётр",
+  "evidence": {
+    "dulType": "21",
+    "dulSeries": "9999",
+    "dulNumber": "999999"
+  },
+  "identifiers": [
+    { "sourceSystemId": "CRM", "externalPersonId": "cli-001" }
+  ]
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "Unmatched",
+  "masterId": "b2222222-2222-2222-2222-222222222222"
+}
+```
+
+**Состояние БД:**
+- `person_review_queue`: запись **удалена** (автозакрытие)
+- `person_review_history`: 1 запись (resolution=auto_resolved, resolved_by=CRM)
+
+### Результат
+
+- Конфликт автоматически закрыт при исправлении данных
+- История сохранена в `person_review_history`
+- Стюард может видеть историю в АРМ (раздел «История»)

@@ -160,7 +160,7 @@ docker-compose up -d
 docker exec -i mnemonios-postgres psql -U mnemonios -d mnemonios < tools/db/01_schema.sql
 
 # 3. Запустить приложение
-dotnet run --project src/Api
+dotnet run --project src/Applications/Api
 ```
 
 Swagger UI: `http://localhost:5000/swagger`
