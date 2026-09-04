@@ -17,6 +17,7 @@ public class PersonCessationService : IPersonCessationService
 
     private readonly IPersonRepository _repository;
     private readonly ILogger<PersonCessationService> _logger;
+    private readonly IClientIpProvider _clientIpProvider;
     private readonly AppDbContext _context;
 
     /// <summary>
@@ -25,10 +26,12 @@ public class PersonCessationService : IPersonCessationService
     public PersonCessationService(
         IPersonRepository repository,
         ILogger<PersonCessationService> logger,
+        IClientIpProvider clientIpProvider,
         AppDbContext context)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _clientIpProvider = clientIpProvider ?? throw new ArgumentNullException(nameof(clientIpProvider));
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
@@ -122,6 +125,7 @@ public class PersonCessationService : IPersonCessationService
                         ExternalPersonId = externalPersonId,
                         OrganizationUnitKey = request.OrganizationUnitKey ?? string.Empty,
                         ProcessingStatus = "cessation",
+                        SourceIp = _clientIpProvider.GetClientIp(),
                         CreatedAt = DateTime.UtcNow
                     };
                     await _repository.CreateExtCessationAsync(extCessation, cancellationToken);
@@ -238,6 +242,7 @@ public class PersonCessationService : IPersonCessationService
                         ExternalPersonId = externalPersonId,
                         ScheduledDeletionDate = request.ScheduledDeletionDate,
                         OrganizationUnitKey = request.OrganizationUnitKey ?? string.Empty,
+                        SourceIp = _clientIpProvider.GetClientIp(),
                         CreatedAt = DateTime.UtcNow
                     };
                     await _repository.CreateExtDeferredCessationAsync(extDeferred, cancellationToken);
@@ -314,6 +319,7 @@ public class PersonCessationService : IPersonCessationService
                         ExternalPersonId = deferred.ExternalPersonId,
                         OrganizationUnitKey = deferred.OrganizationUnitKey,
                         ProcessingStatus = "cessation",
+                        SourceIp = "system",
                         CreatedAt = now
                     };
                     await _repository.CreateExtCessationAsync(extCessation, cancellationToken);

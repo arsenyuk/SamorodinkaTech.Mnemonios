@@ -20,6 +20,7 @@ public class PersonResolveService : IPersonResolveService
     private readonly IIdentificationKeyService _keyService;
     private readonly IPersonCessationService _cessationService;
     private readonly IPersonMergeService _mergeService;
+    private readonly IClientIpProvider _clientIpProvider;
     private readonly AppDbContext _context;
 
     /// <summary>
@@ -31,6 +32,7 @@ public class PersonResolveService : IPersonResolveService
         IIdentificationKeyService keyService,
         IPersonCessationService cessationService,
         IPersonMergeService mergeService,
+        IClientIpProvider clientIpProvider,
         AppDbContext context)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -38,6 +40,7 @@ public class PersonResolveService : IPersonResolveService
         _keyService = keyService ?? throw new ArgumentNullException(nameof(keyService));
         _cessationService = cessationService ?? throw new ArgumentNullException(nameof(cessationService));
         _mergeService = mergeService ?? throw new ArgumentNullException(nameof(mergeService));
+        _clientIpProvider = clientIpProvider ?? throw new ArgumentNullException(nameof(clientIpProvider));
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
@@ -54,7 +57,7 @@ public class PersonResolveService : IPersonResolveService
         var computedKeys = _keyService.ComputeKeys(request, DefaultNormalizationVersion);
 
         // --- Staging: create ext_persons record with hashes ---
-        var extPerson = CreateExtPersonEntity(request, computedKeys);
+        var extPerson = CreateExtPersonEntity(request, computedKeys, _clientIpProvider.GetClientIp());
         var extDefects = CreateExtDefectEntities(extPerson.Id, defects);
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
@@ -359,7 +362,7 @@ public class PersonResolveService : IPersonResolveService
         await _repository.SaveDefectsAsync(entityDefects, cancellationToken);
     }
 
-    private static ExtPerson CreateExtPersonEntity(ResolveRequest request, IReadOnlyList<IdentificationKey> computedKeys)
+    private static ExtPerson CreateExtPersonEntity(ResolveRequest request, IReadOnlyList<IdentificationKey> computedKeys, string sourceIp)
     {
         return new ExtPerson
         {
@@ -373,6 +376,7 @@ public class PersonResolveService : IPersonResolveService
             KeyInnFio = computedKeys.FirstOrDefault(k => k.KeyType == "inn_fio")?.KeyValue,
             KeySnilsFio = computedKeys.FirstOrDefault(k => k.KeyType == "snils_fio")?.KeyValue,
             KeyDulFio = computedKeys.FirstOrDefault(k => k.KeyType == "dul_fio")?.KeyValue,
+            SourceIp = sourceIp,
             CreatedAt = DateTime.UtcNow
         };
     }

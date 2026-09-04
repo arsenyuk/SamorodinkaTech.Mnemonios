@@ -128,7 +128,8 @@ CREATE TABLE ext_persons (
     key_snils_fio            varchar(255),
     key_dul_fio              varchar(255),
     created_at               timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    processed_at             timestamp with time zone
+    processed_at             timestamp with time zone,
+    source_ip                varchar(45)
 );
 
 CREATE INDEX ix_ext_persons_person_id ON ext_persons (person_id);
@@ -161,7 +162,8 @@ CREATE TABLE ext_person_cessations (
     organization_unit_key varchar(100) NOT NULL,
     processing_status     varchar(20) NOT NULL DEFAULT 'pending',
     created_at            timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    processed_at          timestamp with time zone
+    processed_at          timestamp with time zone,
+    source_ip             varchar(45)
 );
 
 CREATE INDEX ix_ext_person_cessations_person_id ON ext_person_cessations (person_id);
@@ -179,7 +181,8 @@ CREATE TABLE ext_person_deferred_cessations (
     organization_unit_key     varchar(100) NOT NULL,
     processing_status         varchar(20) NOT NULL DEFAULT 'pending',
     created_at                timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    processed_at              timestamp with time zone
+    processed_at              timestamp with time zone,
+    source_ip                 varchar(45)
 );
 
 CREATE INDEX ix_ext_person_deferred_cessations_person_id ON ext_person_deferred_cessations (person_id);
