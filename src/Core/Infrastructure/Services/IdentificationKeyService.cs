@@ -153,9 +153,9 @@ public class IdentificationKeyService : IIdentificationKeyService
 
     private string? NormalizeDulIfPresent(string? type, string? series, string? number)
     {
-        if (string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(number))
+        if (string.IsNullOrWhiteSpace(series) && string.IsNullOrWhiteSpace(number))
             return null;
 
-        return _normalizationService.NormalizeDul(type ?? string.Empty, series, number);
+        return _normalizationService.NormalizeDul(type ?? string.Empty, series ?? string.Empty, number ?? string.Empty);
     }
 }

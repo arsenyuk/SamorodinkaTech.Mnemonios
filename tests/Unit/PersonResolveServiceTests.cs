@@ -531,11 +531,11 @@ public class PersonResolveServiceTests
         result.HasDefects.Should().BeTrue();
         result.Defects.Should().Contain(d => d.DefectType == "dul_incomplete");
 
-        // Проверить, что документ сохранён (неполный)
+        // Проверить, что документ сохранён (с хешем)
         var docs = _dbContext.PersonDocuments.Where(d => d.MasterId == createdPerson.MasterId).ToList();
         docs.Should().HaveCount(1);
         docs[0].DocumentType.Should().Be("21");
-        docs[0].DocumentHash.Should().BeEmpty(); // Неполный документ без хеша
+        docs[0].DocumentHash.Should().NotBeEmpty(); // Хеш вычисляется при наличии хотя бы одного поля
     }
 
     [Fact]
@@ -564,7 +564,7 @@ public class PersonResolveServiceTests
 
         var docs = _dbContext.PersonDocuments.Where(d => d.MasterId == createdPerson.MasterId).ToList();
         docs.Should().HaveCount(1);
-        docs[0].DocumentHash.Should().BeEmpty();
+        docs[0].DocumentHash.Should().NotBeEmpty(); // Хеш вычисляется при наличии хотя бы одного поля
     }
 
     [Fact]
