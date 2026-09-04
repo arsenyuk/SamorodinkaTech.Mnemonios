@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Mnemonios.Domain.Interfaces;
 using Mnemonios.Infrastructure.Persistence;
 
 namespace SamorodinkaTech.Mnemonios.Steward.Services;
@@ -10,15 +9,13 @@ namespace SamorodinkaTech.Mnemonios.Steward.Services;
 public class StewardService : IStewardService
 {
     private readonly AppDbContext _context;
-    private readonly IPersonMergeService _mergeService;
 
     /// <summary>
     /// Создаёт новый экземпляр <see cref="StewardService"/>.
     /// </summary>
-    public StewardService(AppDbContext context, IPersonMergeService mergeService)
+    public StewardService(AppDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
-        _mergeService = mergeService ?? throw new ArgumentNullException(nameof(mergeService));
     }
 
     /// <inheritdoc/>
@@ -35,36 +32,6 @@ public class StewardService : IStewardService
                 r.ConflictKeyType,
                 r.CreatedAt))
             .ToListAsync(ct);
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> ConfirmReviewAsync(Guid reviewId, CancellationToken ct)
-    {
-        var review = await _context.PersonReviewQueues.FindAsync([reviewId], ct);
-        if (review is null)
-            return false;
-
-        await _mergeService.MergePersonsAsync(review.PersonAId, review.PersonBId, "steward_confirm", ct);
-
-        review.Status = "confirmed";
-        review.ReviewedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(ct);
-
-        return true;
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> RejectReviewAsync(Guid reviewId, CancellationToken ct)
-    {
-        var review = await _context.PersonReviewQueues.FindAsync([reviewId], ct);
-        if (review is null)
-            return false;
-
-        review.Status = "rejected";
-        review.ReviewedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(ct);
-
-        return true;
     }
 
     /// <inheritdoc/>
@@ -102,6 +69,44 @@ public class StewardService : IStewardService
             return null;
 
         return await LoadPersonDataAsync(masterId, ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<PersonDefectsListItem>> GetPersonsWithDefectsAsync(CancellationToken ct)
+    {
+        return await _context.Persons
+            .Where(p => _context.PersonDefects.Any(d => d.MasterId == p.MasterId))
+            .OrderByDescending(p => _context.PersonDefects.Count(d => d.MasterId == p.MasterId))
+            .ThenByDescending(p => p.CreatedAt)
+            .Select(p => new PersonDefectsListItem(
+                p.MasterId,
+                p.CreatedAt,
+                _context.PersonDefects.Count(d => d.MasterId == p.MasterId),
+                _context.PersonDefects
+                    .Where(d => d.MasterId == p.MasterId)
+                    .Select(d => d.DefectType)
+                    .Distinct()
+                    .ToList()))
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<ReviewHistoryItem>> GetReviewHistoryAsync(CancellationToken ct)
+    {
+        return await _context.PersonReviewHistories
+            .OrderByDescending(h => h.ResolvedAt)
+            .Select(h => new ReviewHistoryItem(
+                h.Id,
+                h.ReviewId,
+                h.PersonAId,
+                h.PersonBId,
+                h.SharedKeyType,
+                h.ConflictKeyType,
+                h.Resolution,
+                h.ResolvedBy,
+                h.ResolvedAt,
+                h.CreatedAt))
+            .ToListAsync(ct);
     }
 
     private async Task<PersonData> LoadPersonDataAsync(Guid masterId, CancellationToken ct)
@@ -213,24 +218,5 @@ public class StewardService : IStewardService
         }
 
         return result;
-    }
-
-    /// <inheritdoc/>
-    public async Task<IReadOnlyList<PersonDefectsListItem>> GetPersonsWithDefectsAsync(CancellationToken ct)
-    {
-        return await _context.Persons
-            .Where(p => _context.PersonDefects.Any(d => d.MasterId == p.MasterId))
-            .OrderByDescending(p => _context.PersonDefects.Count(d => d.MasterId == p.MasterId))
-            .ThenByDescending(p => p.CreatedAt)
-            .Select(p => new PersonDefectsListItem(
-                p.MasterId,
-                p.CreatedAt,
-                _context.PersonDefects.Count(d => d.MasterId == p.MasterId),
-                _context.PersonDefects
-                    .Where(d => d.MasterId == p.MasterId)
-                    .Select(d => d.DefectType)
-                    .Distinct()
-                    .ToList()))
-            .ToListAsync(ct);
     }
 }

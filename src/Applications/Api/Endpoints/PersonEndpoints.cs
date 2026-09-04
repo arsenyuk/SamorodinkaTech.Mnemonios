@@ -80,18 +80,6 @@ public static class PersonEndpoints
             .WithSummary("Очередь на ручную обработку стюардом (Ambiguous).")
             .Produces(StatusCodes.Status200OK);
 
-        group.MapPost("/review/{reviewId:guid}/confirm", HandleConfirmReviewAsync)
-            .WithName("ConfirmReview")
-            .WithSummary("Подтверждение: merge personB → personA.")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
-
-        group.MapPost("/review/{reviewId:guid}/reject", HandleRejectReviewAsync)
-            .WithName("RejectReview")
-            .WithSummary("Отклонение: оставить записи раздельно.")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
-
         return app;
     }
 
@@ -392,71 +380,6 @@ public static class PersonEndpoints
         }
         catch (Exception ex)
         {
-            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
-        }
-    }
-
-    private static async Task<IResult> HandleConfirmReviewAsync(
-        Guid reviewId,
-        AppDbContext context,
-        IPersonMergeService mergeService,
-        ILoggerFactory loggerFactory,
-        CancellationToken ct)
-    {
-        var logger = loggerFactory.CreateLogger("PersonEndpoints.Review");
-
-        try
-        {
-            var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
-
-            if (review is null)
-                return Results.NotFound();
-
-            await mergeService.MergePersonsAsync(review.PersonAId, review.PersonBId, "steward_confirm", ct);
-
-            review.Status = "confirmed";
-            review.ReviewedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync(ct);
-
-            logger.LogInformation("Review {Id} confirmed: merged {PersonB} into {PersonA}",
-                reviewId, review.PersonBId, review.PersonAId);
-
-            return Results.Ok(new { merged = review.PersonBId, surviving = review.PersonAId });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error confirming review {ReviewId}", reviewId);
-            return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
-        }
-    }
-
-    private static async Task<IResult> HandleRejectReviewAsync(
-        Guid reviewId,
-        AppDbContext context,
-        ILoggerFactory loggerFactory,
-        CancellationToken ct)
-    {
-        var logger = loggerFactory.CreateLogger("PersonEndpoints.Review");
-
-        try
-        {
-            var review = await context.PersonReviewQueues.FindAsync([reviewId], ct);
-
-            if (review is null)
-                return Results.NotFound();
-
-            review.Status = "rejected";
-            review.ReviewedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync(ct);
-
-            logger.LogInformation("Review {Id} rejected: persons {PersonA} and {PersonB} remain separate",
-                reviewId, review.PersonAId, review.PersonBId);
-
-            return Results.Ok(new { personA = review.PersonAId, personB = review.PersonBId });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error rejecting review {ReviewId}", reviewId);
             return Results.BadRequest(new { error = ExceptionFlattener.Unwrap(ex) });
         }
     }

@@ -1543,6 +1543,40 @@ public class PersonResolveEndpointTests : IClassFixture<TestWebApplicationFactor
         queueResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    // =========================================================================
+    // 28. Resolve — автозакрытие конфликта при исправлении данных
+    // =========================================================================
+
+    [Fact]
+    public async Task Resolve_SecondRequestForSameExternalId_Matched()
+    {
+        var uid = Guid.NewGuid().ToString("N")[..8];
+
+        // Первый запрос → Unmatched (новая персона)
+        var first = await PostResolve(new ResolveRequest
+        {
+            LastName = "Тест",
+            FirstName = "Первый",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = "123456" },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-second-{uid}"
+        });
+        first.Status.Should().Be(PersonMatchStatus.Unmatched);
+        first.MasterId.Should().NotBeNull();
+
+        // Второй запрос с теми же данными → Matched (та же персона)
+        var second = await PostResolve(new ResolveRequest
+        {
+            LastName = "Тест",
+            FirstName = "Первый",
+            Evidence = new Evidence { DulType = "21", DulSeries = "4510", DulNumber = "123456" },
+            SourceSystemId = "CRM",
+            ExternalPersonId = $"ext-second-{uid}"
+        });
+        second.Status.Should().Be(PersonMatchStatus.Matched);
+        second.MasterId.Should().Be(first.MasterId);
+    }
+
     private async Task<ResolveResponse> PostResolve(ResolveRequest request)
     {
         var response = await _client.PostAsJsonAsync("/persons/resolve", request);

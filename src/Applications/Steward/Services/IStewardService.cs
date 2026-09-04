@@ -11,18 +11,6 @@ public interface IStewardService
     Task<IReadOnlyList<ReviewQueueItem>> GetPendingReviewsAsync(CancellationToken ct);
 
     /// <summary>
-    /// Подтвердить запись: merge personB → personA.
-    /// </summary>
-    /// <returns>true, если запись найдена и обработана; false, если запись не найдена.</returns>
-    Task<bool> ConfirmReviewAsync(Guid reviewId, CancellationToken ct);
-
-    /// <summary>
-    /// Отклонить запись: оставить записи раздельно.
-    /// </summary>
-    /// <returns>true, если запись найдена и обработана; false, если запись не найдена.</returns>
-    Task<bool> RejectReviewAsync(Guid reviewId, CancellationToken ct);
-
-    /// <summary>
     /// Получить детальную информацию о конфликте для просмотра.
     /// </summary>
     /// <returns>Детали конфликта или null, если запись не найдена.</returns>
@@ -38,4 +26,9 @@ public interface IStewardService
     /// Получить список мастер-записей, имеющих дефекты.
     /// </summary>
     Task<IReadOnlyList<PersonDefectsListItem>> GetPersonsWithDefectsAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Получить историю разрешённых конфликтов.
+    /// </summary>
+    Task<IReadOnlyList<ReviewHistoryItem>> GetReviewHistoryAsync(CancellationToken ct);
 }

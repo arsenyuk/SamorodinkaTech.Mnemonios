@@ -41,6 +41,9 @@ public class AppDbContext : DbContext
     /// <summary>Очередь на ручную обработку стюардом (Ambiguous).</summary>
     public DbSet<PersonReviewQueue> PersonReviewQueues => Set<PersonReviewQueue>();
 
+    /// <summary>История разрешённых конфликтов.</summary>
+    public DbSet<PersonReviewHistory> PersonReviewHistories => Set<PersonReviewHistory>();
+
     /// <summary>URL-маски для триад (ЮЛ, Система, Тип объекта).</summary>
     public DbSet<UrlMask> UrlMasks => Set<UrlMask>();
 

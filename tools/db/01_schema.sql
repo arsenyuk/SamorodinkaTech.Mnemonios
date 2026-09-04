@@ -218,6 +218,26 @@ CREATE TABLE person_review_queue (
 CREATE INDEX ix_person_review_queue_status ON person_review_queue (status) WHERE status = 'pending';
 
 -- -----------------------------------------------------------------------------
+-- person_review_history — история разрешённых конфликтов
+-- -----------------------------------------------------------------------------
+CREATE TABLE person_review_history (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    review_id           uuid NOT NULL,
+    person_a_id         uuid NOT NULL,
+    person_b_id         uuid NOT NULL,
+    shared_key_type     varchar(50) NOT NULL,
+    conflict_key_type   varchar(50) NOT NULL,
+    resolution          varchar(20) NOT NULL,
+    resolved_by         varchar(100) NOT NULL,
+    resolved_at         timestamp with time zone NOT NULL,
+    resolution_details  jsonb,
+    created_at          timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX ix_person_review_history_review_id ON person_review_history (review_id);
+CREATE INDEX ix_person_review_history_resolved_at ON person_review_history (resolved_at);
+
+-- -----------------------------------------------------------------------------
 -- url_masks — URL-маски для триад (ЮЛ, Система, Тип объекта)
 -- -----------------------------------------------------------------------------
 CREATE TABLE url_masks (

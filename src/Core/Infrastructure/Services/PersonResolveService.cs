@@ -81,6 +81,13 @@ public class PersonResolveService : IPersonResolveService
             await _repository.MarkExtPersonProcessedAsync(extPerson.Id, goldenMasterId, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
+
+            // --- Auto-close pending review if conflict resolved ---
+            if (response.Status == PersonMatchStatus.Matched && response.MasterId.HasValue)
+            {
+                await ClosePendingReviewAsync(request.SourceSystemId, request.ExternalPersonId, response.MasterId.Value, cancellationToken);
+            }
+
             return response;
         }
         catch
@@ -598,6 +605,46 @@ public class PersonResolveService : IPersonResolveService
             Defects = defects,
             KeyConflicts = conflicts
         };
+    }
+
+    private async Task ClosePendingReviewAsync(
+        string sourceSystemId,
+        string externalPersonId,
+        Guid resolvedMasterId,
+        CancellationToken cancellationToken)
+    {
+        // Найти pending-запись для этого внешнего ID
+        var pendingReview = await _context.PersonReviewQueues
+            .FirstOrDefaultAsync(r =>
+                r.Status == "pending" &&
+                _context.PersonExternalIds.Any(e =>
+                    e.MasterId == r.PersonAId &&
+                    e.SourceSystemId == sourceSystemId &&
+                    e.ExternalPersonId == externalPersonId),
+                cancellationToken);
+
+        if (pendingReview is null)
+            return;
+
+        // Сохранить в историю
+        var history = new PersonReviewHistory
+        {
+            Id = Guid.NewGuid(),
+            ReviewId = pendingReview.Id,
+            PersonAId = pendingReview.PersonAId,
+            PersonBId = pendingReview.PersonBId,
+            SharedKeyType = pendingReview.SharedKeyType,
+            ConflictKeyType = pendingReview.ConflictKeyType,
+            Resolution = "auto_resolved",
+            ResolvedBy = sourceSystemId,
+            ResolvedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PersonReviewHistories.Add(history);
+
+        // Удалить из очереди
+        _context.PersonReviewQueues.Remove(pendingReview);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>

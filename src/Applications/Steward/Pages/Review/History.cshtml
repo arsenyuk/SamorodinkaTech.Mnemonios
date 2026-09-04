@@ -1,0 +1,61 @@
+@page
+@model HistoryModel
+@{
+    ViewData["Title"] = "История конфликтов";
+}
+
+<h1 class="mb-4">История разрешённых конфликтов</h1>
+
+@if (!Model.Items.Any())
+{
+    <div class="alert alert-info d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        Нет записей в истории.
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Персона A</th>
+                    <th>Персона B</th>
+                    <th>Совпавший ключ</th>
+                    <th>Конфликт</th>
+                    <th>Разрешено</th>
+                    <th>Кем</th>
+                    <th class="col-date">Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <a asp-page="/Review/Person" asp-route-masterId="@item.PersonAId" class="text-decoration-none">
+                                <code>@item.PersonAId.ToString()[..8]</code>
+                            </a>
+                        </td>
+                        <td>
+                            <a asp-page="/Review/Person" asp-route-masterId="@item.PersonBId" class="text-decoration-none">
+                                <code>@item.PersonBId.ToString()[..8]</code>
+                            </a>
+                        </td>
+                        <td><span class="badge bg-primary badge-key">@item.SharedKeyType</span></td>
+                        <td>
+                            @foreach (var kt in item.ConflictKeyType.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                <span class="badge bg-danger badge-key me-1">@kt</span>
+                            }
+                        </td>
+                        <td><span class="badge bg-success">@item.Resolution</span></td>
+                        <td><code>@item.ResolvedBy</code></td>
+                        <td>@item.ResolvedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted mt-2" style="font-size:.85em">Всего записей: @Model.Items.Count</p>
+}
