@@ -308,6 +308,40 @@ catch
 
 ---
 
+## Правила Docker (КРИТИЧНО)
+
+### Пересборка контейнера при изменении кода (КРИТИЧНО)
+
+При изменении исходного кода и перезапуске контейнера **обязательно** использовать
+`docker compose build --no-cache <service>`, а не просто `docker compose up -d`.
+
+Причины: Docker BuildKit кэширует слой `COPY src/ src/`. При обычной сборке
+старый кэш используется, и контейнер запускается со старым кодом.
+
+```
+# Неправильно (код не обновится):
+docker compose up -d steward
+
+# Правильно:
+docker compose build --no-cache steward
+docker compose up -d steward
+```
+
+Для Api и Worker — аналогично:
+```
+docker compose build --no-cache api
+docker compose up -d api
+```
+
+### Проверка обновления
+
+После пересборки проверять.timestamp DLL в контейнере:
+```bash
+docker exec <container> ls -la /app/<ProjectName>.dll
+```
+
+---
+
 ## Правила конфигурации
 
 ### Конфигурация логирования (КРИТИЧНО)
